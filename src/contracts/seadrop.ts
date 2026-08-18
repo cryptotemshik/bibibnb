@@ -1,0 +1,171 @@
+import artifact from "./ERC721SeaDrop.json";
+
+/**
+ * Stock ERC721SeaDrop from ProjectOpenSea/seadrop (src/ERC721SeaDrop.sol,
+ * commit 6ab8b2c), compiled with the repo's pinned solc 0.8.17, optimizer
+ * enabled at 1,000,000 runs, bytecode_hash = "none" (per the repo's
+ * foundry.toml). Mint logic untouched — OpenSea compatibility depends on it.
+ */
+export const erc721SeaDropAbi = artifact.abi;
+export const erc721SeaDropBytecode = artifact.bytecode as `0x${string}`;
+
+/** Minimal ABI for the read/write calls LaunchPad makes on the token. */
+export const tokenAbi = [
+  {
+    type: "function",
+    name: "name",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "string" }],
+  },
+  {
+    type: "function",
+    name: "symbol",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "string" }],
+  },
+  {
+    type: "function",
+    name: "owner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "maxSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "baseURI",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "string" }],
+  },
+  {
+    type: "function",
+    name: "contractURI",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "string" }],
+  },
+  {
+    type: "function",
+    name: "provenanceHash",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "setBaseURI",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newBaseURI", type: "string" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "setMaxSupply",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newMaxSupply", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "setRoyaltyInfo",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "newInfo",
+        type: "tuple",
+        components: [
+          { name: "royaltyAddress", type: "address" },
+          { name: "royaltyBps", type: "uint96" },
+        ],
+      },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "royaltyInfo",
+    stateMutability: "view",
+    inputs: [
+      { name: "_tokenId", type: "uint256" },
+      { name: "_salePrice", type: "uint256" },
+    ],
+    outputs: [
+      { name: "receiver", type: "address" },
+      { name: "royaltyAmount", type: "uint256" },
+    ],
+  },
+  {
+    type: "function",
+    name: "updatePublicDrop",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "seaDropImpl", type: "address" },
+      {
+        name: "publicDrop",
+        type: "tuple",
+        components: [
+          { name: "mintPrice", type: "uint80" },
+          { name: "startTime", type: "uint48" },
+          { name: "endTime", type: "uint48" },
+          { name: "maxTotalMintableByWallet", type: "uint16" },
+          { name: "feeBps", type: "uint16" },
+          { name: "restrictFeeRecipients", type: "bool" },
+        ],
+      },
+    ],
+    outputs: [],
+  },
+] as const;
+
+/** Minimal ABI for reading drop state off the canonical SeaDrop contract. */
+export const seaDropAbi = [
+  {
+    type: "function",
+    name: "getPublicDrop",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "mintPrice", type: "uint80" },
+          { name: "startTime", type: "uint48" },
+          { name: "endTime", type: "uint48" },
+          { name: "maxTotalMintableByWallet", type: "uint16" },
+          { name: "feeBps", type: "uint16" },
+          { name: "restrictFeeRecipients", type: "bool" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "getCreatorPayoutAddress",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "getAllowedFeeRecipients",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [{ type: "address[]" }],
+  },
+] as const;
