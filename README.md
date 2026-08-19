@@ -194,10 +194,14 @@ forge verify-contract \
 
 1. Log into opensea.io with the **deployer wallet**.
 2. The collection auto-appears after indexing (SeaDrop events; no submission).
-3. Collection → Edit: logo, banner, description, links, royalties (if you
-   didn't set ERC-2981 at launch).
-4. Optional: OpenSea Studio drop-page cosmetics (gallery, story sections).
-5. Post-reveal, if an item shows the placeholder: … → Refresh metadata.
+3. Collection → Edit: logo, banner, description, royalties (if you didn't set
+   ERC-2981 at launch). The website is already set if you filled it in at
+   launch — it ships in the contractURI JSON as `external_link`.
+4. Collection → Edit → Links: connect **X (Twitter)** and Discord. This is an
+   OAuth flow that exists only in OpenSea's settings UI — there is no metadata
+   field or API for it, so it cannot be automated.
+5. Optional: OpenSea Studio drop-page cosmetics (gallery, story sections).
+6. Post-reveal, if an item shows the placeholder: … → Refresh metadata.
 
 ## FAQ
 

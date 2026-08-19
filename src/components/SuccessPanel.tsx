@@ -80,8 +80,15 @@ export default function SuccessPanel({
             found via the SeaDrop events — no submission needed).
           </li>
           <li>
-            Collection → Edit: upload logo &amp; banner, fix the description,
-            add links{state.royaltyTxHash ? "" : ", set creator royalties"}.
+            Collection → Edit: upload logo &amp; banner, fix the description
+            {state.royaltyTxHash ? "" : ", set creator royalties"}. The website
+            link is already there if you set it at launch (contractURI
+            external_link).
+          </li>
+          <li>
+            Collection → Edit → Links: connect X (Twitter) and Discord — this
+            is an OAuth flow that exists only in OpenSea&apos;s settings UI, so
+            it can&apos;t be automated from here.
           </li>
           <li>
             Optional: OpenSea Studio drop-page cosmetics (gallery, story

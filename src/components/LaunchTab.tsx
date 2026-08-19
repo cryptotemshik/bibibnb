@@ -41,6 +41,7 @@ const EMPTY_FORM: LaunchFormValues = {
   name: "",
   symbol: "",
   description: "",
+  websiteUrl: "",
   supply: 0,
   mintPriceEth: "0",
   perWalletLimit: 0,
@@ -80,6 +81,11 @@ function deriveAndValidate(
   )
     errors.push(`Per-wallet limit must be 1..${UINT16_MAX}`);
   if (!jwt.trim()) errors.push("Pinata JWT is required (kept in memory only)");
+  if (
+    form.websiteUrl.trim() !== "" &&
+    !/^https?:\/\/.+\..+/.test(form.websiteUrl.trim())
+  )
+    errors.push("Website must be a full URL (https://…)");
   if (!imageFile && !resuming?.prerevealImageCid)
     errors.push("Pre-reveal image is required");
 
@@ -285,6 +291,9 @@ export default function LaunchTab() {
             name: `${form.name} (unrevealed)`,
             description: form.description,
             image: `ipfs://${st.prerevealImageCid}`,
+            ...(form.websiteUrl.trim()
+              ? { external_url: form.websiteUrl.trim() }
+              : {}),
           },
           `${form.name} pre-reveal metadata`,
         );
@@ -298,12 +307,18 @@ export default function LaunchTab() {
 
       updateStep("contracturi", { status: "running" });
       if (!st.contractUriCid) {
+        // Contract-level metadata per OpenSea's spec; external_link is the
+        // collection website. Socials (X/Discord) have no metadata field —
+        // OpenSea only connects them via OAuth in collection settings.
         const cid = await pinJson(
           jwt,
           {
             name: form.name,
             description: form.description,
             image: `ipfs://${st.prerevealImageCid}`,
+            ...(form.websiteUrl.trim()
+              ? { external_link: form.websiteUrl.trim() }
+              : {}),
           },
           `${form.name} contractURI`,
         );
@@ -506,6 +521,14 @@ export default function LaunchTab() {
               onChange={(e) => set({ description: e.target.value })}
             />
           </div>
+          <div className="field wide">
+            <label>website (optional — shows on OpenSea as the collection link)</label>
+            <input
+              value={form.websiteUrl}
+              onChange={(e) => set({ websiteUrl: e.target.value })}
+              placeholder="https://…  (Twitter/X can't be set here — OpenSea connects it via OAuth in collection settings)"
+            />
+          </div>
           <div className="field">
             <label>number of NFTs (maxSupply)</label>
             <input
@@ -699,6 +722,8 @@ export default function LaunchTab() {
                   ? `${derived.royaltyBps / 100}% to ${derived.payout.slice(0, 10)}… (ERC-2981)`
                   : "none (can set later in OpenSea collection settings)"}
               </dd>
+              <dt>website</dt>
+              <dd>{form.websiteUrl.trim() || "not set"}</dd>
               <dt>provenance</dt>
               <dd>{derived.provenance ?? "not set"}</dd>
               <dt>predicted link</dt>

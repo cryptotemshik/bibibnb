@@ -11,6 +11,8 @@ export interface LaunchFormValues {
   name: string;
   symbol: string;
   description: string;
+  /** Optional collection website → contractURI external_link on OpenSea. */
+  websiteUrl: string;
   supply: number;
   /** ETH string as typed, e.g. "0.02"; wei is derived at tx time. */
   mintPriceEth: string;
