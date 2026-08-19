@@ -16,7 +16,7 @@ import { shortAddress } from "./ConnectBar";
 import { TxLink } from "./Bits";
 import { TrendingIcon } from "./icons";
 
-const POLL_MS = 20_000;
+const POLL_MS = 5_000;
 
 export default function LiveTab() {
   const chainInfo = useActiveChain();

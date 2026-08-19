@@ -25,7 +25,7 @@ import { timeAgo } from "../lib/convert";
 import { shortAddress } from "./ConnectBar";
 import { AddrLink, TxLink } from "./Bits";
 
-const POLL_MS = 30_000;
+const POLL_MS = 5_000;
 const KIND_CLASS: Record<WalletEvent["kind"], string> = {
   mint: "ev-mint",
   buy: "ev-buy",

@@ -230,7 +230,7 @@ shows:
   minters), with a rough secondary of mint volume and how long ago the last
   mint landed. Collection names are resolved on-chain via `name()` and cached.
 - **Latest mints**: a live ticker of individual mints (who minted how many of
-  what, unit price, time-ago, tx link), auto-refreshing every 20s.
+  what, unit price, time-ago, tx link), auto-refreshing every 5s.
 
 Only mints that go through SeaDrop are visible here (that's what LaunchPad and
 OpenSea drops use). It needs a **Blockscout API** for the active chain, so it's
@@ -248,7 +248,7 @@ Watch any set of wallets and get alerted when they **mint**, **buy**, or
 - Each wallet's recent ERC-721/1155 transfers are read from Blockscout and
   classified relative to the wallet: `mint` (from `0x0`), `buy`/`sell` (a
   Seaport order fill — matched by method name or raw 4-byte selector), or plain
-  `receive`/`send`. Poll runs every 30s.
+  `receive`/`send`. Poll runs every 5s.
 - **Browser notifications** (opt-in) fire for new events while the tab is open;
   the first (baseline) batch is silenced so you only hear about genuinely new
   activity.

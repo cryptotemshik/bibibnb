@@ -118,6 +118,21 @@ export function useSigner(): ActiveSigner {
     };
   }
 
+  // Not connected yet: let the user browse a chain of their choice so the
+  // read-only tabs (Live, Wallets, Status, Dashboard) work before connecting.
+  if (!wConnected) {
+    const selInfo =
+      getChainInfo(ctx?.selectedChainId ?? DEFAULT_CHAIN_ID) ??
+      getChainInfo(DEFAULT_CHAIN_ID);
+    return {
+      mode: "wallet",
+      chainId: selInfo?.id,
+      chainInfo: selInfo,
+      isConnected: false,
+      wrongNetwork: false,
+    };
+  }
+
   const info = getChainInfo(wChain);
   return {
     mode: "wallet",
@@ -147,7 +162,8 @@ export function useChainSwitcher() {
 
   function select(id: number) {
     if (!CHAINS_BY_ID.has(id)) return;
-    if (ctx.mode === "local") {
+    if (ctx.mode === "local" || !active.isConnected) {
+      // Fast mode, or wallet mode before connecting — just set the browse chain.
       ctx.setSelectedChainId(id);
     } else {
       switchChain({ chainId: id });

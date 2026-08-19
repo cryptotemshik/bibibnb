@@ -58,7 +58,7 @@ export default function ConnectBar() {
           <select
             className={`net-select ${wrongNetwork ? "bad" : ""}`}
             value={CHAINS.some((c) => c.id === activeId) ? activeId : ""}
-            disabled={switching || (mode === "wallet" && !isConnected)}
+            disabled={switching}
             onChange={(e) => select(Number(e.target.value))}
           >
             {!CHAINS.some((c) => c.id === activeId) ? (
