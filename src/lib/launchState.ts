@@ -23,6 +23,8 @@ export interface LaunchFormValues {
   provenanceHash: string;
   /** Royalty percent as typed, e.g. "5" → 500 bps. Empty = skip royalties. */
   royaltyPercent: string;
+  /** true → extra tx sets OpenSea's transfer validator (enforced royalties). */
+  enforcedRoyalties: boolean;
   creatorPayoutAddress: string;
 }
 
@@ -40,6 +42,7 @@ export interface LaunchState {
   contractAddress?: string;
   configureTxHash?: string;
   royaltyTxHash?: string;
+  validatorTxHash?: string;
   // Reveal (filled in by the Reveal tab)
   revealImagesCid?: string;
   revealMetadataCid?: string;

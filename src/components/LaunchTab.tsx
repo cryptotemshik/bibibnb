@@ -7,6 +7,7 @@ import {
   OPENSEA_FEE_BPS,
   OPENSEA_FEE_RECIPIENT,
   SEADROP_ADDRESS,
+  TRANSFER_VALIDATOR,
   openSeaCollectionUrl,
   robinhoodChain,
 } from "../config";
@@ -49,6 +50,7 @@ const EMPTY_FORM: LaunchFormValues = {
   endLocal: "",
   provenanceHash: "",
   royaltyPercent: "",
+  enforcedRoyalties: false,
   creatorPayoutAddress: "",
 };
 
@@ -132,6 +134,11 @@ function deriveAndValidate(
       royaltyBps = Math.round(pct * 100);
       if (royaltyBps === 0) royaltyBps = null;
     }
+  }
+  if (form.enforcedRoyalties && !royaltyBps) {
+    errors.push(
+      "Enforced royalties need a royalty % above zero (or switch back to 'signal only')",
+    );
   }
 
   const payout = form.creatorPayoutAddress.trim();
@@ -248,6 +255,9 @@ export default function LaunchTab() {
       { id: "configure", label: "TX 2/2 — multiConfigure (supply, drop, payout)", status: "pending" },
       ...(params.royaltyBps
         ? [{ id: "royalty", label: `Optional TX — setRoyaltyInfo (${params.royaltyBps} bps)`, status: "pending" as const }]
+        : []),
+      ...(form.enforcedRoyalties
+        ? [{ id: "validator", label: "Optional TX — setTransferValidator (enforced royalties)", status: "pending" as const }]
         : []),
     ];
     setSteps(stepList);
@@ -439,6 +449,32 @@ export default function LaunchTab() {
         });
       }
 
+      // ── Optional TX 4: enforced royalties (OpenSea transfer validator) ───
+      if (form.enforcedRoyalties) {
+        updateStep("validator", { status: "running", detail: "confirm in wallet…" });
+        if (!st.validatorTxHash) {
+          const { request } = await publicClient.simulateContract({
+            address: st.contractAddress as `0x${string}`,
+            abi: tokenAbi,
+            functionName: "setTransferValidator",
+            args: [TRANSFER_VALIDATOR],
+            account: address,
+          });
+          const hash = await walletClient.writeContract(request);
+          updateStep("validator", { detail: "waiting for confirmation…" });
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success") {
+            throw new Error(`setTransferValidator reverted (${hash})`);
+          }
+          st = updateLaunchState({ validatorTxHash: hash });
+          setState(st);
+        }
+        updateStep("validator", {
+          status: "done",
+          detail: <TxLink hash={st.validatorTxHash!} />,
+        });
+      }
+
       st = updateLaunchState({ completedAt: Date.now() });
       setState(st);
       setPhase("done");
@@ -613,6 +649,27 @@ export default function LaunchTab() {
               placeholder="e.g. 5 — leave empty to skip"
             />
           </div>
+          <div className="field">
+            <label>royalty enforcement</label>
+            <select
+              value={form.enforcedRoyalties ? "enforced" : "signal"}
+              onChange={(e) =>
+                set({ enforcedRoyalties: e.target.value === "enforced" })
+              }
+            >
+              <option value="signal">
+                signal only — marketplaces may ignore (default)
+              </option>
+              <option value="enforced">
+                enforced — OpenSea transfer validator (+1 tx)
+              </option>
+            </select>
+            <span className="hint">
+              enforced = transfers restricted to royalty-respecting channels via{" "}
+              {TRANSFER_VALIDATOR.slice(0, 10)}… — same validator live enforced
+              drops on this chain use; owner can turn it off later
+            </span>
+          </div>
           <div className="field wide">
             <label>provenance hash (optional, 32-byte hex — set before mint as a trust signal)</label>
             <input
@@ -626,7 +683,10 @@ export default function LaunchTab() {
           OpenSea drop fee: {OPENSEA_FEE_BPS / 100}% to{" "}
           {OPENSEA_FEE_RECIPIENT.slice(0, 10)}… (required for OpenSea drops,
           restricted fee recipients on). Allowlist / signed / token-gated stages
-          are intentionally not supported — public mint only.
+          are intentionally not supported — public mint only. Mint currency is
+          native ETH only: the canonical SeaDrop contract hard-codes msg.value
+          payment, so ERC-20 pricing (USDG/WETH) would need a custom contract
+          that OpenSea&apos;s drop indexing doesn&apos;t recognize.
         </p>
       </div>
 
@@ -719,7 +779,11 @@ export default function LaunchTab() {
               <dt>royalties</dt>
               <dd>
                 {derived.royaltyBps
-                  ? `${derived.royaltyBps / 100}% to ${derived.payout.slice(0, 10)}… (ERC-2981)`
+                  ? `${derived.royaltyBps / 100}% to ${derived.payout.slice(0, 10)}… — ${
+                      form.enforcedRoyalties
+                        ? "ENFORCED via OpenSea transfer validator"
+                        : "signal only (ERC-2981, marketplaces may ignore)"
+                    }`
                   : "none (can set later in OpenSea collection settings)"}
               </dd>
               <dt>website</dt>
@@ -736,8 +800,11 @@ export default function LaunchTab() {
               never below what&apos;s already minted.
             </p>
             <p>
-              You will sign {derived.royaltyBps ? "3" : "2"} transactions:
-              deploy, multiConfigure{derived.royaltyBps ? ", setRoyaltyInfo" : ""}.
+              You will sign{" "}
+              {2 + (derived.royaltyBps ? 1 : 0) + (form.enforcedRoyalties ? 1 : 0)}{" "}
+              transactions: deploy, multiConfigure
+              {derived.royaltyBps ? ", setRoyaltyInfo" : ""}
+              {form.enforcedRoyalties ? ", setTransferValidator" : ""}.
             </p>
             <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input

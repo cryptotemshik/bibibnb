@@ -112,6 +112,20 @@ export const tokenAbi = [
   },
   {
     type: "function",
+    name: "setTransferValidator",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newValidator", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "getTransferValidator",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
     name: "updatePublicDrop",
     stateMutability: "nonpayable",
     inputs: [

@@ -43,6 +43,14 @@ export default function SuccessPanel({
               </dd>
             </>
           ) : null}
+          {state.validatorTxHash ? (
+            <>
+              <dt>enforcement tx</dt>
+              <dd>
+                <TxLink hash={state.validatorTxHash} />
+              </dd>
+            </>
+          ) : null}
           <dt>OpenSea</dt>
           <dd>
             <a href={openSeaCollectionUrl(address)} target="_blank" rel="noreferrer">

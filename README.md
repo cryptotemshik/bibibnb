@@ -107,6 +107,13 @@ Deploy anywhere static (no backend, no database):
    address, optional provenance hash, OpenSea fee recipient allowed.
    Optional **TX 3**: `setRoyaltyInfo` if you set a royalty % (ERC-2981 —
    supported by this contract but not part of `multiConfigure`).
+   Optional **TX 4**: `setTransferValidator` when royalty enforcement is set to
+   "enforced" — it points the token at OpenSea's transfer validator
+   (`StrictAuthorizedTransferSecurityRegistry`,
+   `0xA000027A9B2802E1ddf7000061001e5c005A0000`, source-verified; the same
+   validator live enforced drops on Robinhood Chain use). "Signal only" leaves
+   the validator unset — ERC-2981 is then a request marketplaces may ignore.
+   The owner can flip enforcement on/off later from the Status tab.
 4. Success screen: contract address, Blockscout + predicted OpenSea links, mint
    countdown, and the manual OpenSea Studio checklist.
 
@@ -139,10 +146,24 @@ Read-only dashboard for any pasted/saved contract: minted vs maxSupply, decoded
 `PublicDrop` (price, window in local+UTC, per-wallet limit, fee), owner, payout
 address, baseURI (revealed or not), provenance, OpenSea/Blockscout links.
 
+**Profit widget** — a big green/red number:
+`profit = mint proceeds + royalties − launch cost`.
+
+- *Mint proceeds* are exact: decoded from SeaDrop's `SeaDropMint` events for
+  this contract, already net of OpenSea's drop fee (the gross and OpenSea's
+  cut are shown alongside).
+- *Royalties* are an estimate: the sum of Seaport 1.6 → royalty-receiver
+  internal transfers (that's how OpenSea pays creator earnings on secondary
+  sales). Other collections or the wallet's own OpenSea sales inflate it.
+- *Launch cost* is the gas actually paid for the deploy (from the contract's
+  creation tx) plus configure/royalty/reveal txs when the launch was made from
+  this browser (saved state).
+
 Owner actions (only shown to the owner):
 
 - `updatePublicDrop` — change price / start / end / per-wallet limit any time.
 - `setMaxSupply` — cut supply after mint slows (never below already-minted).
+- Enforce / un-enforce royalties — one tx toggling OpenSea's transfer validator.
 - Nothing to withdraw: mint proceeds stream to the creator payout address on
   every mint, automatically, via SeaDrop.
 
@@ -218,6 +239,20 @@ snipe the best tokens. Pre-reveal, every token points at one shared
 
 **How do I change the price/time/limit later?** Status tab → Owner actions →
 `updatePublicDrop`. Owner-only, effective immediately, one transaction.
+
+**Can the mint be priced in USDG or WETH?** No — and that's the canonical
+SeaDrop contract, not this app: `mintPublic` is `payable` and validates
+`msg.value == quantity × mintPrice`, paying out with native-ETH transfers.
+ERC-20 pricing would require a custom drop contract that OpenSea's drop
+indexing doesn't recognize, which defeats the point of LaunchPad. Buyers can
+still pay with other tokens on OpenSea's *secondary* market (OpenSea swaps for
+them); the primary mint settles in native ETH.
+
+**Enforced vs signal-only royalties?** ERC-2981 (`setRoyaltyInfo`) is just an
+on-chain request — marketplaces may ignore it. "Enforced" additionally sets
+OpenSea's transfer validator, which restricts transfers to royalty-respecting
+channels. Trade-off: enforcement limits composability (some marketplaces and
+protocols won't be able to move the tokens), which is exactly the point.
 
 **Can I raise the supply later?** `setMaxSupply` technically allows any value
 not below the minted count, but treat supply as a promise to buyers — LaunchPad

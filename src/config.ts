@@ -50,6 +50,28 @@ export const OPENSEA_FEE_RECIPIENT =
 export const OPENSEA_FEE_BPS = 1000;
 
 /**
+ * ── Royalty enforcement ──────────────────────────────────────────────────────
+ * OpenSea's transfer validator (StrictAuthorizedTransferSecurityRegistry,
+ * source-verified on Robinhood Chain Blockscout). Setting it via
+ * setTransferValidator makes royalties ENFORCED — transfers are restricted to
+ * authorized (royalty-respecting) channels. Verified 2026-08-19: live enforced
+ * drops on this chain use exactly this address; non-enforced ones keep 0x0.
+ */
+export const TRANSFER_VALIDATOR =
+  "0xA000027A9B2802E1ddf7000061001e5c005A0000" as const;
+
+/**
+ * ── Profit data sources ──────────────────────────────────────────────────────
+ * Seaport 1.6 (canonical cross-chain address, deployed on Robinhood Chain) —
+ * OpenSea secondary sales pay creator royalties as internal transfers from it.
+ * Blockscout v2 API allows browser CORS (verified) and provides internal
+ * transactions + coin price.
+ */
+export const SEAPORT_1_6 =
+  "0x0000000000000068F116a894984e2DB1123eB395" as const;
+export const BLOCKSCOUT_API = `${EXPLORER_URL}/api/v2`;
+
+/**
  * ── OpenSea links ────────────────────────────────────────────────────────────
  * OpenSea's chain slug for Robinhood Chain (see
  * https://opensea.io/collections/chain/robinhood).
