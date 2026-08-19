@@ -33,7 +33,9 @@ export default function ConnectBar() {
     <div>
       <div className="topbar">
         <h1>
-          LAUNCHPAD<span className="dim">@opensea-evm</span>
+          <span className="brand-mark" aria-hidden>◆</span>
+          LaunchPad
+          <span className="brand-dim">&nbsp;· OpenSea EVM</span>
           <span className="cursor">▌</span>
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
