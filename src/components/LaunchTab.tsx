@@ -16,10 +16,12 @@ import {
   isAddress,
   normalizeProvenanceHash,
   nowPlusMinutesLocalInput,
+  parseCollectionInput,
   UINT16_MAX,
   unixToLocalAndUtc,
   weiToEth,
 } from "../lib/convert";
+import { importCollection } from "../lib/importCollection";
 import { pinFile, pinJson, testPinataJwt } from "../lib/pinata";
 import { upsertProject } from "../lib/projects";
 import {
@@ -38,14 +40,17 @@ const EMPTY_FORM: LaunchFormValues = {
   symbol: "",
   description: "",
   websiteUrl: "",
+  prerevealName: "",
+  prerevealDescription: "",
   supply: 0,
   mintPriceEth: "0",
   perWalletLimit: 0,
   startLocal: "",
   endLocal: "",
   provenanceHash: "",
-  royaltyPercent: "",
-  enforcedRoyalties: false,
+  // Sensible default: the maximum OpenSea honours, enforced on-chain.
+  royaltyPercent: "10",
+  enforcedRoyalties: true,
   creatorPayoutAddress: "",
 };
 
@@ -179,6 +184,22 @@ export default function LaunchTab() {
   const [state, setState] = useState<LaunchState | null>(saved);
   const [derived, setDerived] = useState<DerivedParams | null>(null);
   const [launchFee, setLaunchFee] = useState<bigint>(0n);
+  const [importInput, setImportInput] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importNotes, setImportNotes] = useState<string[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  // Object URL for the picked pre-reveal image, revoked when it changes.
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
 
   // Read the on-chain launch fee once, if a fee factory is configured.
   useEffect(() => {
@@ -206,6 +227,43 @@ export default function LaunchTab() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address]);
+
+  async function runImport() {
+    const target = parseCollectionInput(importInput);
+    if (!target) {
+      setImportError("Paste a contract address or an OpenSea/Blockscout link");
+      return;
+    }
+    if (!publicClient || !chainInfo) {
+      setImportError("Pick a supported network first");
+      return;
+    }
+    setImporting(true);
+    setImportError(null);
+    setImportNotes(null);
+    try {
+      const c = await importCollection(publicClient, target, chainInfo);
+      set({
+        name: c.name,
+        symbol: c.symbol,
+        description: c.description,
+        websiteUrl: c.websiteUrl,
+        ...(c.supply > 0 ? { supply: c.supply } : {}),
+        ...(c.mintPriceEth ? { mintPriceEth: c.mintPriceEth } : {}),
+        ...(c.perWalletLimit > 0 ? { perWalletLimit: c.perWalletLimit } : {}),
+        ...(c.royaltyPercent ? { royaltyPercent: c.royaltyPercent } : {}),
+      });
+      setImportNotes(c.notes);
+    } catch (e) {
+      setImportError(
+        `Couldn't read that collection on ${chainInfo.label}: ${
+          e instanceof Error ? e.message.split("\n")[0] : e
+        }`,
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
 
   function openConfirm() {
     const { params, errors: errs } = deriveAndValidate(form, jwt, imageFile, saved);
@@ -317,8 +375,9 @@ export default function LaunchTab() {
         const cid = await pinJson(
           jwt,
           {
-            name: `${form.name} (unrevealed)`,
-            description: form.description,
+            name: form.prerevealName.trim() || `${form.name} (unrevealed)`,
+            description:
+              form.prerevealDescription.trim() || form.description,
             image: `ipfs://${st.prerevealImageCid}`,
             ...(form.websiteUrl.trim()
               ? { external_url: form.websiteUrl.trim() }
@@ -608,6 +667,45 @@ export default function LaunchTab() {
       ) : null}
 
       <div className="panel">
+        <h2>Start from an existing collection (optional)</h2>
+        <p className="dim">
+          Copies the <b>settings</b> of any collection on {chainInfo.label} into
+          the form below — name, symbol, description, website, supply, price,
+          per-wallet limit and royalty %. Artwork is never copied: upload your
+          own pre-reveal image and your own art at reveal.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            style={{ flex: 1, minWidth: 220 }}
+            value={importInput}
+            onChange={(e) => setImportInput(e.target.value)}
+            placeholder="0x… contract address, or an OpenSea/Blockscout link"
+            onKeyDown={(e) => e.key === "Enter" && void runImport()}
+          />
+          <button
+            className="secondary"
+            disabled={importing}
+            onClick={() => void runImport()}
+          >
+            {importing ? "reading…" : "copy settings"}
+          </button>
+        </div>
+        {importError ? <p className="error">{importError}</p> : null}
+        {importNotes ? (
+          <>
+            <p className="ok" style={{ marginBottom: 4 }}>
+              Settings copied into the form — review everything before launching.
+            </p>
+            <ul className="dim" style={{ margin: 0, paddingLeft: 20, fontSize: 12 }}>
+              {importNotes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </div>
+
+      <div className="panel">
         <h2>Collection</h2>
         <div className="grid">
           <div className="field">
@@ -662,6 +760,43 @@ export default function LaunchTab() {
               shown for every token until you run the Reveal — the real art
               stays off IPFS until then
             </span>
+            {imageFile ? (
+              <div className="file-pick">
+                <img src={imagePreview ?? undefined} alt="" />
+                <span>
+                  {imageFile.name}{" "}
+                  <span className="dim">
+                    ({Math.round(imageFile.size / 1024).toLocaleString()} KB)
+                  </span>
+                </span>
+              </div>
+            ) : saved?.prerevealImageCid && !state?.completedAt ? (
+              <span className="hint ok">
+                already uploaded in a previous attempt — re-selecting is optional
+              </span>
+            ) : null}
+          </div>
+          <div className="field">
+            <label>pre-reveal item name (optional)</label>
+            <input
+              value={form.prerevealName}
+              onChange={(e) => set({ prerevealName: e.target.value })}
+              placeholder={
+                form.name ? `${form.name} (unrevealed)` : "My Collection (unrevealed)"
+              }
+            />
+            <span className="hint">
+              the name every token shows until the reveal
+            </span>
+          </div>
+          <div className="field wide">
+            <label>pre-reveal item description (optional)</label>
+            <textarea
+              rows={2}
+              value={form.prerevealDescription}
+              onChange={(e) => set({ prerevealDescription: e.target.value })}
+              placeholder="defaults to the collection description above"
+            />
           </div>
         </div>
       </div>
@@ -769,6 +904,15 @@ export default function LaunchTab() {
 
       <div className="panel">
         <h2>Pinata</h2>
+        <p className="dim" style={{ marginTop: 0 }}>
+          Pinata pins your images and metadata to IPFS — that&apos;s where
+          OpenSea reads them from. Free tier is plenty. Get a key at{" "}
+          <a href="https://pinata.cloud" target="_blank" rel="noreferrer">
+            pinata.cloud
+          </a>{" "}
+          → API Keys → New Key (needs <code>pinFileToIPFS</code> +{" "}
+          <code>pinJSONToIPFS</code>, or just Admin).
+        </p>
         <div className="field">
           <label>Pinata JWT (kept in memory only — never stored, re-paste each session)</label>
           <input
@@ -778,6 +922,11 @@ export default function LaunchTab() {
             placeholder="eyJ…"
             autoComplete="off"
           />
+          <span className="hint warn">
+            Pinata&apos;s dialog shows three values — paste the <b>third</b>,
+            &ldquo;JWT (secret access token)&rdquo;, which starts with{" "}
+            <code>eyJ</code>. The API Key and API Secret will not work.
+          </span>
         </div>
       </div>
 

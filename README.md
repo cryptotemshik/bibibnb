@@ -217,6 +217,22 @@ There is no server and no key database anywhere in this project — a backend th
 stored keys would concentrate every wallet behind one breachable door, which is
 strictly worse than one key in one browser tab.
 
+## Pinata key — which one
+
+Pinata's "API Key Information" dialog shows three values. LaunchPad needs the
+**third: "JWT (secret access token)"**, the one starting with `eyJ`. The API
+Key and API Secret are rejected. Create it at pinata.cloud → API Keys → New Key
+with `pinFileToIPFS` + `pinJSONToIPFS` permissions (or Admin). It's held in the
+tab's memory only — never stored, re-paste each session.
+
+## Starting from an existing collection
+
+The Launch tab can copy another collection's **settings** into the form: name,
+symbol, description, website, supply, mint price, per-wallet limit and royalty
+%. Everything comes from public reads (the contract plus its contractURI JSON).
+Artwork is deliberately never copied — you upload your own pre-reveal image and
+your own art at reveal.
+
 ## Live mints tab (MintGo-style)
 
 What's minting **right now**, read live from the chain's Blockscout API — no

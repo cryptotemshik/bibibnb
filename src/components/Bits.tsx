@@ -7,6 +7,7 @@ import {
   ipfsGatewayUrl,
 } from "../chains";
 import { useActiveChain } from "../signer";
+import { collectionOpenSeaUrl, setOpenSeaUrl } from "../lib/projects";
 import { CheckIcon, CopyIcon } from "./icons";
 
 /**
@@ -89,6 +90,75 @@ export function AddrLink({ address }: { address: string }) {
     >
       {address}
     </a>
+  );
+}
+
+/**
+ * The collection's OpenSea link with a copy button and an inline editor.
+ * OpenSea mints its own slug at index time, so the address-based URL is only
+ * a fallback until the real one is pasted in.
+ */
+export function OpenSeaLink({
+  address,
+  fallback,
+  label = "OpenSea",
+}: {
+  address: string;
+  fallback: string;
+  label?: string;
+}) {
+  const [url, setUrl] = useState(() => collectionOpenSeaUrl(address, fallback));
+  const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  function commit() {
+    setOpenSeaUrl(address, draft);
+    setUrl(draft.trim() || fallback);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+        <input
+          style={{ minWidth: 220 }}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="https://opensea.io/collection/your-slug"
+          onKeyDown={(e) => e.key === "Enter" && commit()}
+        />
+        <button className="secondary" style={{ padding: "2px 10px", fontSize: 11 }} onClick={commit}>
+          save
+        </button>
+        <button
+          className="secondary"
+          style={{ padding: "2px 10px", fontSize: 11 }}
+          onClick={() => setEditing(false)}
+        >
+          cancel
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="addr-row">
+      <a href={url} target="_blank" rel="noreferrer">
+        {label}
+      </a>
+      <CopyButton text={url} title="copy OpenSea link" />
+      <button
+        className="secondary"
+        style={{ padding: "2px 10px", fontSize: 11 }}
+        title="paste the real OpenSea link once the collection is indexed"
+        onClick={() => {
+          setDraft(url === fallback ? "" : url);
+          setEditing(true);
+        }}
+      >
+        edit
+      </button>
+    </span>
   );
 }
 

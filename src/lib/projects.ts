@@ -12,8 +12,43 @@ export interface ProjectEntry {
   /** Cached display bits so the table paints instantly on revisit. */
   name?: string;
   createdAt?: number;
+  /**
+   * User-set OpenSea URL. OpenSea assigns its own slug once it indexes the
+   * collection (opensea.io/collection/<slug>), which no contract field
+   * predicts — so the address-based link is only a fallback until the real
+   * one is pasted here.
+   */
+  openSeaUrl?: string;
   source: "launch" | "manual";
   addedAt: number;
+}
+
+/** The OpenSea link for a contract: the user's override, else the fallback. */
+export function collectionOpenSeaUrl(address: string, fallback: string): string {
+  const custom = loadProjects().find(
+    (p) => p.address.toLowerCase() === address.toLowerCase(),
+  )?.openSeaUrl;
+  return custom?.trim() ? custom.trim() : fallback;
+}
+
+export function setOpenSeaUrl(address: string, url: string): ProjectEntry[] {
+  const projects = loadProjects();
+  const existing = projects.find(
+    (p) => p.address.toLowerCase() === address.toLowerCase(),
+  );
+  const trimmed = url.trim();
+  if (existing) {
+    existing.openSeaUrl = trimmed || undefined;
+  } else {
+    projects.push({
+      address,
+      openSeaUrl: trimmed || undefined,
+      source: "manual",
+      addedAt: Date.now(),
+    });
+  }
+  save(projects);
+  return projects;
 }
 
 export function loadProjects(): ProjectEntry[] {

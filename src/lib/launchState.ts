@@ -13,6 +13,10 @@ export interface LaunchFormValues {
   description: string;
   /** Optional collection website → contractURI external_link on OpenSea. */
   websiteUrl: string;
+  /** Item name shown before reveal. Empty → "<collection> (unrevealed)". */
+  prerevealName: string;
+  /** Item description shown before reveal. Empty → the collection description. */
+  prerevealDescription: string;
   supply: number;
   /** ETH string as typed, e.g. "0.02"; wei is derived at tx time. */
   mintPriceEth: string;

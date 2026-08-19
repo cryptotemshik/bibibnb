@@ -13,7 +13,7 @@ import {
   formatUsdApprox,
   type ProfitBreakdown,
 } from "../lib/profit";
-import { AddrLink, IpfsLink } from "./Bits";
+import { AddrLink, CopyButton, IpfsLink, OpenSeaLink } from "./Bits";
 
 export interface ProfitView {
   loading: boolean;
@@ -114,10 +114,16 @@ export function CollectionDetail({
       <dd>{/^0x0+$/.test(status.provenanceHash) ? "not set" : status.provenanceHash}</dd>
       <dt>links</dt>
       <dd>
-        <a href={openSeaCollectionUrl(info, contract)} target="_blank" rel="noreferrer">
-          OpenSea
-        </a>{" "}
-        · <AddrLink address={contract} /> ·{" "}
+        <OpenSeaLink
+          address={contract}
+          fallback={openSeaCollectionUrl(info, contract)}
+        />{" "}
+        ·{" "}
+        <span className="addr-row">
+          <AddrLink address={contract} />
+          <CopyButton text={contract} />
+        </span>{" "}
+        ·{" "}
         <a
           href={xShareUrl(`${status.name} — live on OpenSea.`, openSeaCollectionUrl(info, contract))}
           target="_blank"

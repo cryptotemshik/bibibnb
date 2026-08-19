@@ -8,12 +8,25 @@ const PINATA_API = "https://api.pinata.cloud";
 export class PinataError extends Error {}
 
 export async function testPinataJwt(jwt: string): Promise<void> {
+  const token = jwt.trim();
+  // The JWT is a three-part token starting with "eyJ". Pinata's key dialog
+  // shows three values and the other two (API Key, API Secret) are rejected
+  // here with a bare 401 — name the mix-up instead.
+  if (!token.startsWith("eyJ") || token.split(".").length !== 3) {
+    throw new PinataError(
+      "That doesn't look like a Pinata JWT. In Pinata's \"API Key Information\" " +
+        'dialog copy the third field — "JWT (secret access token)", it starts ' +
+        "with eyJ… — not the API Key or the API Secret.",
+    );
+  }
   const res = await fetch(`${PINATA_API}/data/testAuthentication`, {
-    headers: { Authorization: `Bearer ${jwt}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
     throw new PinataError(
-      `Pinata rejected the JWT (HTTP ${res.status}). Paste a valid Pinata JWT (Pinata → API Keys).`,
+      `Pinata rejected the JWT (HTTP ${res.status}). Create a key at Pinata → ` +
+        "API Keys with pinFileToIPFS + pinJSONToIPFS permissions (or Admin), " +
+        'then paste its "JWT (secret access token)" value here.',
     );
   }
 }
@@ -27,7 +40,7 @@ function xhrUpload(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${PINATA_API}/pinning/pinFileToIPFS`);
-    xhr.setRequestHeader("Authorization", `Bearer ${jwt}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${jwt.trim()}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
     };
@@ -91,7 +104,7 @@ export async function pinJson(
   const res = await fetch(`${PINATA_API}/pinning/pinJSONToIPFS`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${jwt}`,
+      Authorization: `Bearer ${jwt.trim()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

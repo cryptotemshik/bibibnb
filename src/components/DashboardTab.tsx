@@ -22,6 +22,7 @@ import {
 } from "../lib/projects";
 import { buildCumulativeSeries, dedupeByReceiver } from "../lib/series";
 import { shortAddress } from "./ConnectBar";
+import { CopyButton } from "./Bits";
 import { CollectionDetail, ProfitBlock } from "./CollectionDetail";
 import ProfitChart from "./ProfitChart";
 
@@ -263,7 +264,10 @@ export default function DashboardTab() {
                       onClick={() => setExpanded(isExpanded ? null : key)}
                     >
                       <td>
-                        {r.status?.name ?? r.entry.name ?? shortAddress(r.entry.address)}
+                        <span className="coll-cell">
+                          {r.status?.name ?? r.entry.name ?? shortAddress(r.entry.address)}
+                          <CopyButton text={r.entry.address} />
+                        </span>
                         {r.error ? <div className="error">{r.error}</div> : null}
                       </td>
                       <td>

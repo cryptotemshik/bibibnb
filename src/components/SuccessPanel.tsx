@@ -4,7 +4,8 @@ import { CHAINS_BY_ID, DEFAULT_CHAIN_ID, openSeaCollectionUrl } from "../chains"
 import { useActiveChain } from "../signer";
 import { formatCountdown, unixToLocalAndUtc } from "../lib/convert";
 import type { LaunchState } from "../lib/launchState";
-import { AddrLink, TxLink } from "./Bits";
+import { collectionOpenSeaUrl, setOpenSeaUrl } from "../lib/projects";
+import { AddrLink, CopyButton, TxLink } from "./Bits";
 
 export default function SuccessPanel({
   state,
@@ -23,6 +24,13 @@ export default function SuccessPanel({
   const address = state.contractAddress!;
   const start = unixToLocalAndUtc(state.startTime);
 
+  const fallbackUrl = openSeaCollectionUrl(info, address);
+  const [osUrl, setOsUrl] = useState(() =>
+    collectionOpenSeaUrl(address, fallbackUrl),
+  );
+  const [osDraft, setOsDraft] = useState("");
+  const [editingUrl, setEditingUrl] = useState(false);
+
   return (
     <div>
       <div className="panel">
@@ -30,7 +38,10 @@ export default function SuccessPanel({
         <dl className="kv">
           <dt>contract</dt>
           <dd>
-            <AddrLink address={address} />
+            <span className="addr-row">
+              <AddrLink address={address} />
+              <CopyButton text={address} />
+            </span>
           </dd>
           <dt>deploy tx</dt>
           <dd>{state.deployTxHash ? <TxLink hash={state.deployTxHash} /> : "—"}</dd>
@@ -56,12 +67,57 @@ export default function SuccessPanel({
           ) : null}
           <dt>OpenSea</dt>
           <dd>
-            <a href={openSeaCollectionUrl(info, address)} target="_blank" rel="noreferrer">
-              {openSeaCollectionUrl(info, address)}
-            </a>
+            {editingUrl ? (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  style={{ flex: 1, minWidth: 240 }}
+                  value={osDraft}
+                  onChange={(e) => setOsDraft(e.target.value)}
+                  placeholder="https://opensea.io/collection/your-slug"
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    setOpenSeaUrl(address, osDraft);
+                    setOsUrl(osDraft.trim() || fallbackUrl);
+                    setEditingUrl(false);
+                  }}
+                />
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setOpenSeaUrl(address, osDraft);
+                    setOsUrl(osDraft.trim() || fallbackUrl);
+                    setEditingUrl(false);
+                  }}
+                >
+                  save
+                </button>
+                <button className="secondary" onClick={() => setEditingUrl(false)}>
+                  cancel
+                </button>
+              </div>
+            ) : (
+              <span className="addr-row">
+                <a href={osUrl} target="_blank" rel="noreferrer">
+                  {osUrl}
+                </a>
+                <CopyButton text={osUrl} title="copy OpenSea link" />
+                <button
+                  className="secondary"
+                  style={{ padding: "2px 10px", fontSize: 11 }}
+                  onClick={() => {
+                    setOsDraft(osUrl === fallbackUrl ? "" : osUrl);
+                    setEditingUrl(true);
+                  }}
+                >
+                  edit
+                </button>
+              </span>
+            )}
             <div className="dim">
               (appears after OpenSea indexes the contract — usually minutes,
-              sometimes longer on a young chain)
+              sometimes longer on a young chain). Once OpenSea assigns a slug,
+              paste the real link here with <b>edit</b> — no contract field
+              predicts it, so the address link above is only a fallback.
             </div>
           </dd>
           <dt>mint starts</dt>
@@ -132,7 +188,7 @@ export default function SuccessPanel({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             className="secondary"
-            onClick={() => window.open(openSeaCollectionUrl(info, address), "_blank")}
+            onClick={() => window.open(osUrl, "_blank")}
           >
             connect X → OpenSea: Edit → Links → Connect
           </button>
@@ -144,7 +200,7 @@ export default function SuccessPanel({
                   `${state.form.name} — minting on OpenSea. Mint opens ${
                     unixToLocalAndUtc(state.startTime).utc
                   }.`,
-                  openSeaCollectionUrl(info, address),
+                  osUrl,
                 ),
                 "_blank",
               )

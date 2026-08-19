@@ -1134,10 +1134,33 @@ tr.project-detail td {
   background: var(--surface-2);
 }
 
-.coll-cell {
+.coll-cell,
+.addr-row {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.addr-row .mono-break {
+  min-width: 0;
+}
+
+/* Picked pre-reveal image: thumbnail + file name. */
+.file-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.file-pick img {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
 }
 .copy-btn {
   all: unset;
