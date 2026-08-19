@@ -36,13 +36,24 @@ import {
 import { AddrLink, IpfsLink, Steps, TxLink, type StepView } from "./Bits";
 import SuccessPanel from "./SuccessPanel";
 
+/** Pre-reveal copy every token shares until the reveal — editable defaults. */
+const DEFAULT_PREREVEAL_DESCRIPTION =
+  "Not revealed yet. Every token in this collection shares this placeholder " +
+  "until the artwork is revealed on-chain after the mint. Hold tight.";
+
+/** "<collection> (unrevealed)" — the placeholder item name. */
+export function defaultPrerevealName(collectionName: string): string {
+  const n = collectionName.trim();
+  return n ? `${n} (unrevealed)` : "";
+}
+
 const EMPTY_FORM: LaunchFormValues = {
   name: "",
   symbol: "",
   description: "",
   websiteUrl: "",
   prerevealName: "",
-  prerevealDescription: "",
+  prerevealDescription: DEFAULT_PREREVEAL_DESCRIPTION,
   supply: 0,
   mintPriceEth: "0",
   perWalletLimit: 0,
@@ -194,6 +205,16 @@ export default function LaunchTab() {
 
   const imagePreview = useObjectUrl(imageFile);
   const collectionImagePreview = useObjectUrl(collectionImageFile);
+
+  // The unrevealed item name tracks the collection name ("Foo (unrevealed)")
+  // until the user types their own — then it's left alone.
+  const [prerevealNameEdited, setPrerevealNameEdited] = useState(
+    () => Boolean(saved?.form?.prerevealName),
+  );
+  useEffect(() => {
+    if (prerevealNameEdited) return;
+    setForm((f) => ({ ...f, prerevealName: defaultPrerevealName(f.name) }));
+  }, [form.name, prerevealNameEdited]);
 
   // Read the on-chain launch fee once, if a fee factory is configured.
   useEffect(() => {
@@ -831,26 +852,62 @@ export default function LaunchTab() {
             ) : null}
           </div>
           <div className="field">
-            <label>pre-reveal item name (optional)</label>
+            <label>unrevealed item name</label>
             <input
               value={form.prerevealName}
-              onChange={(e) => set({ prerevealName: e.target.value })}
-              placeholder={
-                form.name ? `${form.name} (unrevealed)` : "My Collection (unrevealed)"
-              }
+              onChange={(e) => {
+                setPrerevealNameEdited(true);
+                set({ prerevealName: e.target.value });
+              }}
+              placeholder={defaultPrerevealName(form.name) || "My Collection (unrevealed)"}
             />
             <span className="hint">
               the name every token shows until the reveal
+              {prerevealNameEdited ? (
+                <>
+                  {" · "}
+                  <button
+                    className="linklike"
+                    onClick={() => {
+                      setPrerevealNameEdited(false);
+                      set({ prerevealName: defaultPrerevealName(form.name) });
+                    }}
+                  >
+                    reset to default
+                  </button>
+                </>
+              ) : (
+                " · follows the collection name automatically"
+              )}
             </span>
           </div>
           <div className="field wide">
-            <label>pre-reveal item description (optional)</label>
+            <label>unrevealed item description</label>
             <textarea
               rows={2}
               value={form.prerevealDescription}
               onChange={(e) => set({ prerevealDescription: e.target.value })}
-              placeholder="defaults to the collection description above"
+              placeholder="shown on every token until the reveal"
             />
+            <span className="hint">
+              {form.prerevealDescription.trim() === "" ? (
+                "empty — the collection description above will be used"
+              ) : form.prerevealDescription === DEFAULT_PREREVEAL_DESCRIPTION ? (
+                "using the default text — edit it to make it yours"
+              ) : (
+                <>
+                  custom text ·{" "}
+                  <button
+                    className="linklike"
+                    onClick={() =>
+                      set({ prerevealDescription: DEFAULT_PREREVEAL_DESCRIPTION })
+                    }
+                  >
+                    reset to default
+                  </button>
+                </>
+              )}
+            </span>
           </div>
         </div>
       </div>
@@ -1120,6 +1177,16 @@ export default function LaunchTab() {
                         : "signal only (ERC-2981, marketplaces may ignore)"
                     }`
                   : "none (can set later in OpenSea collection settings)"}
+              </dd>
+              <dt>unrevealed name</dt>
+              <dd>
+                {form.prerevealName.trim() || defaultPrerevealName(form.name)}
+              </dd>
+              <dt>unrevealed description</dt>
+              <dd>
+                {form.prerevealDescription.trim() ||
+                  form.description.trim() ||
+                  "not set"}
               </dd>
               <dt>collection picture</dt>
               <dd>

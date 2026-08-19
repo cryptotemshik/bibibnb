@@ -1146,6 +1146,17 @@ tr.project-detail td {
   min-width: 0;
 }
 
+/* Inline "reset to default" affordance inside a hint line. */
+.linklike {
+  all: unset;
+  cursor: pointer;
+  color: var(--green-bright);
+  border-bottom: 1px dotted currentColor;
+}
+.linklike:hover {
+  color: var(--text);
+}
+
 /* Picked pre-reveal image: thumbnail + file name. */
 .file-pick {
   display: flex;
