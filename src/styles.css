@@ -106,6 +106,11 @@ h1 .cursor {
   border-color: var(--green);
   background: var(--panel);
 }
+/* Mint stands apart, pushed to the right edge. */
+.tabs button.tab-mint {
+  margin-left: auto;
+  border-radius: 6px;
+}
 
 .panel {
   background: var(--panel);

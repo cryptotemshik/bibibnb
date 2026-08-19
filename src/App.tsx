@@ -16,7 +16,7 @@ export default function App() {
     <>
       <ConnectBar />
       <div className="tabs">
-        {(["dashboard", "launch", "reveal", "status", "mint"] as const).map((t) => (
+        {(["launch", "reveal", "status", "dashboard"] as const).map((t) => (
           <button
             key={t}
             className={tab === t ? "active" : ""}
@@ -25,6 +25,12 @@ export default function App() {
             {t.toUpperCase()}
           </button>
         ))}
+        <button
+          className={`tab-mint ${tab === "mint" ? "active" : ""}`}
+          onClick={() => setTab("mint")}
+        >
+          MINT
+        </button>
       </div>
       {tab === "dashboard" ? <DashboardTab /> : null}
       {tab === "launch" ? <LaunchTab /> : null}
