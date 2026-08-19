@@ -221,8 +221,14 @@ forge verify-contract \
 4. Collection → Edit → Links: connect **X (Twitter)** and Discord. This is an
    OAuth flow that exists only in OpenSea's settings UI — there is no metadata
    field or API for it, so it cannot be automated.
-5. Optional: OpenSea Studio drop-page cosmetics (gallery, story sections).
-6. Post-reveal, if an item shows the placeholder: … → Refresh metadata.
+5. Collection → Edit: switch the collection's **trading currency** from USDG
+   (the Robinhood Chain default) to **ETH** if you want secondary listings and
+   the floor denominated in ETH. Off-chain OpenSea marketplace preference —
+   no contract field or public API exists for it, so it's a manual toggle.
+   (Either way the primary mint settles in native ETH via SeaDrop, and buyers
+   can still pay with other tokens — OpenSea swaps at checkout.)
+6. Optional: OpenSea Studio drop-page cosmetics (gallery, story sections).
+7. Post-reveal, if an item shows the placeholder: … → Refresh metadata.
 
 ## FAQ
 

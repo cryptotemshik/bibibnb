@@ -99,6 +99,13 @@ export default function SuccessPanel({
             it can&apos;t be automated from here.
           </li>
           <li>
+            Collection → Edit: switch the collection&apos;s trading currency
+            from <b>USDG</b> (the Robinhood Chain default) to <b>ETH</b> if you
+            want listings/floor denominated in ETH. This is an off-chain
+            OpenSea marketplace preference — no contract field or API exists
+            for it, so it&apos;s one manual toggle here.
+          </li>
+          <li>
             Optional: OpenSea Studio drop-page cosmetics (gallery, story
             sections) if you want a fancy drop page.
           </li>
