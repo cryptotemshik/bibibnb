@@ -18,11 +18,12 @@ import {
   nowPlusMinutesLocalInput,
   parseCollectionInput,
   UINT16_MAX,
+  UINT48_MAX,
   unixToLocalAndUtc,
   weiToEth,
 } from "../lib/convert";
 import { importCollection } from "../lib/importCollection";
-import { formatDuration } from "../lib/dropWindow";
+import { durationToSeconds, formatDuration } from "../lib/dropWindow";
 import { pinFile, pinJson, testPinataJwt } from "../lib/pinata";
 import { forgetPinataJwt, loadPinataJwt, savePinataJwt } from "../lib/pinataKey";
 import { upsertProject } from "../lib/projects";
@@ -71,7 +72,10 @@ const EMPTY_FORM: LaunchFormValues = {
   mintPriceEth: "0",
   perWalletLimit: 0,
   startLocal: "",
-  endLocal: "",
+  startNow: true,
+  durationDays: DEFAULT_DROP_DAYS,
+  durationHours: 0,
+  durationMins: 0,
   provenanceHash: "",
   // Sensible default: the maximum OpenSea honours, enforced on-chain.
   royaltyPercent: "10",
@@ -123,24 +127,38 @@ function deriveAndValidate(
     errors.push((e as Error).message);
   }
 
+  // The drop is described as start + duration; SeaDrop's absolute endTime is
+  // derived from that, so the window can never come out shorter than asked.
   let startTime = 0;
   let endTime = 0;
-  try {
-    if (!form.startLocal) throw new Error("Start time is required");
-    startTime = datetimeLocalToUnix(form.startLocal);
-    if (startTime < Math.floor(Date.now() / 1000) - 300)
-      errors.push("Start time is in the past");
-  } catch (e) {
-    errors.push((e as Error).message);
+  if (form.startNow) {
+    // A small cushion: the configure tx has to land before the window opens.
+    startTime = Math.floor(Date.now() / 1000) + 120;
+  } else {
+    try {
+      if (!form.startLocal) throw new Error("Start time is required");
+      startTime = datetimeLocalToUnix(form.startLocal);
+      if (startTime < Math.floor(Date.now() / 1000) - 300)
+        errors.push("Start time is in the past");
+    } catch (e) {
+      errors.push((e as Error).message);
+    }
   }
-  try {
-    endTime = form.endLocal
-      ? datetimeLocalToUnix(form.endLocal)
-      : startTime + DEFAULT_DROP_DAYS * 86_400;
-    if (startTime && endTime <= startTime)
-      errors.push("End time must be after start time");
-  } catch (e) {
-    errors.push((e as Error).message);
+  const durationSeconds = durationToSeconds({
+    days: form.durationDays,
+    hours: form.durationHours,
+    mins: form.durationMins,
+  });
+  if (durationSeconds <= 0) {
+    errors.push("Duration must be longer than zero — set days, hours or minutes");
+  } else if (durationSeconds < 600) {
+    errors.push(
+      `Duration is only ${formatDuration(durationSeconds)} — that closes the mint almost immediately. Set at least 10 minutes.`,
+    );
+  }
+  if (startTime) {
+    endTime = startTime + durationSeconds;
+    if (endTime > UINT48_MAX) errors.push("Duration pushes the end time out of range");
   }
 
   let provenance: `0x${string}` | null = null;
@@ -967,31 +985,97 @@ export default function LaunchTab() {
               onChange={(e) => set({ perWalletLimit: Number(e.target.value) })}
             />
           </div>
-          <div className="field">
-            <label>start time (your local time)</label>
-            <input
-              type="datetime-local"
-              value={form.startLocal}
-              onChange={(e) => set({ startLocal: e.target.value })}
-            />
-            {form.startLocal ? (
-              <span className="hint">
-                = {safeUtc(form.startLocal)}
-              </span>
+          <div className="field wide">
+            <label>when does minting open?</label>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+              <label className="radio-inline">
+                <input
+                  type="radio"
+                  checked={form.startNow}
+                  onChange={() => set({ startNow: true })}
+                />
+                right away
+              </label>
+              <label className="radio-inline">
+                <input
+                  type="radio"
+                  checked={!form.startNow}
+                  onChange={() =>
+                    set({
+                      startNow: false,
+                      startLocal: form.startLocal || nowPlusMinutesLocalInput(60),
+                    })
+                  }
+                />
+                at a set time
+              </label>
+              {!form.startNow ? (
+                <input
+                  type="datetime-local"
+                  style={{ width: "auto", flex: 1, minWidth: 200 }}
+                  value={form.startLocal}
+                  onChange={(e) => set({ startLocal: e.target.value })}
+                />
+              ) : null}
+            </div>
+            {!form.startNow && form.startLocal ? (
+              <span className="hint">= {safeUtc(form.startLocal)}</span>
             ) : null}
           </div>
-          <div className="field">
-            <label>end time (optional — default start + {DEFAULT_DROP_DAYS} days)</label>
-            <input
-              type="datetime-local"
-              value={form.endLocal}
-              onChange={(e) => set({ endLocal: e.target.value })}
-            />
-            {form.endLocal ? (
-              <span className="hint">= {safeUtc(form.endLocal)}</span>
-            ) : null}
-            <span className="hint ok">
-              window length: {windowLengthLabel(form.startLocal, form.endLocal)}
+
+          <div className="field wide">
+            <label>how long does minting stay open? (duration)</label>
+            <div className="dur-row">
+              {(
+                [
+                  ["durationDays", "days"],
+                  ["durationHours", "hours"],
+                  ["durationMins", "mins"],
+                ] as const
+              ).map(([key, unit]) => (
+                <div className="field dur-field" key={key}>
+                  <label>{unit}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form[key]}
+                    onChange={(e) =>
+                      set({ [key]: Math.max(0, Number(e.target.value) || 0) } as Partial<LaunchFormValues>)
+                    }
+                  />
+                </div>
+              ))}
+              <div className="field dur-preset">
+                <label>presets</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {(
+                    [
+                      ["1h", 0, 1, 0],
+                      ["24h", 1, 0, 0],
+                      ["7d", 7, 0, 0],
+                      ["30d", 30, 0, 0],
+                      ["1y", 365, 0, 0],
+                    ] as [string, number, number, number][]
+                  ).map(([label, d, h, m]) => (
+                    <button
+                      key={label}
+                      className="secondary"
+                      style={{ padding: "4px 10px", fontSize: 11 }}
+                      onClick={() =>
+                        set({ durationDays: d, durationHours: h, durationMins: m })
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <span className="hint ok">{windowPreview(form)}</span>
+            <span className="hint">
+              this is the same number OpenSea&apos;s stage dialog calls
+              &ldquo;Duration&rdquo;. The contract stores it as an absolute end
+              time, derived from the start above.
             </span>
           </div>
           <div className="field">
@@ -1191,7 +1275,9 @@ export default function LaunchTab() {
                 {unixToLocalAndUtc(derived.endTime).local}
                 <br />
                 {unixToLocalAndUtc(derived.endTime).utc}
-                {form.endLocal ? "" : ` (default: start + ${DEFAULT_DROP_DAYS} days)`}
+                <div className="ok">
+                  open for {formatDuration(derived.endTime - derived.startTime)}
+                </div>
               </dd>
               <dt>payout to</dt>
               <dd>{derived.payout}</dd>
@@ -1306,21 +1392,26 @@ function useObjectUrl(file: File | null): string | null {
   return url;
 }
 
-/**
- * How long the drop will actually be open — the same number OpenSea's stage
- * dialog shows as "Duration", so the two can be compared at a glance.
- */
-function windowLengthLabel(startLocal: string, endLocal: string): string {
-  try {
-    const start = datetimeLocalToUnix(startLocal);
-    const end = endLocal
-      ? datetimeLocalToUnix(endLocal)
-      : start + DEFAULT_DROP_DAYS * 86_400;
-    if (end <= start) return "invalid — end is not after start";
-    return `${formatDuration(end - start)}${endLocal ? "" : " (default)"}`;
-  } catch {
-    return "set a start time first";
+/** Spell the derived window back out, so the absolute end is never a surprise. */
+function windowPreview(form: LaunchFormValues): string {
+  const seconds = durationToSeconds({
+    days: form.durationDays,
+    hours: form.durationHours,
+    mins: form.durationMins,
+  });
+  if (seconds <= 0) return "set a duration above zero";
+  let start: number;
+  if (form.startNow) {
+    start = Math.floor(Date.now() / 1000) + 120;
+  } else {
+    try {
+      start = datetimeLocalToUnix(form.startLocal);
+    } catch {
+      return `${formatDuration(seconds)} — pick a start time to see the end date`;
+    }
   }
+  const end = unixToLocalAndUtc(start + seconds);
+  return `open for ${formatDuration(seconds)} · ends ${end.local}`;
 }
 
 function safeUtc(local: string): string {

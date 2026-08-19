@@ -23,9 +23,18 @@ export interface LaunchFormValues {
   /** ETH string as typed, e.g. "0.02"; wei is derived at tx time. */
   mintPriceEth: string;
   perWalletLimit: number;
-  /** datetime-local strings (local wall-clock). */
+  /** datetime-local string (local wall-clock). Ignored when startNow is set. */
   startLocal: string;
-  endLocal: string;
+  /** Open the drop the moment the configure tx lands. */
+  startNow: boolean;
+  /**
+   * How long the drop stays open, counted from its start. SeaDrop stores an
+   * absolute endTime — this is what it gets derived from, and it's the same
+   * number OpenSea's stage dialog calls "Duration".
+   */
+  durationDays: number;
+  durationHours: number;
+  durationMins: number;
   provenanceHash: string;
   /** Royalty percent as typed, e.g. "5" → 500 bps. Empty = skip royalties. */
   royaltyPercent: string;

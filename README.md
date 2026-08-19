@@ -239,8 +239,11 @@ The Status tab's **Drop window** panel is the fix:
 
 After any edit on OpenSea, press **read** and check this panel.
 
-The Launch form also shows the **window length** next to the end time, which is
-the same number OpenSea's dialog calls Duration.
+The Launch form asks the same way OpenSea does: **when minting opens** (right
+away, or at a set time) and **how long it stays open** — days / hours / mins
+with 1h / 24h / 7d / 30d / 1y presets. The absolute end time is derived and
+shown live ("open for 30d · ends …"), and a duration under ten minutes is
+rejected before it can produce a drop that closes on arrival.
 
 ### Stage name
 

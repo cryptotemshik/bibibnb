@@ -1298,3 +1298,17 @@ tr.project-detail td {
   flex: 1;
   min-width: 200px;
 }
+
+/* Inline radio choice (start mode) — keep the label on one line. */
+.radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.radio-inline input {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
