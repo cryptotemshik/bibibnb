@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Landing from "./components/Landing";
 import ConnectBar from "./components/ConnectBar";
 import DashboardTab from "./components/DashboardTab";
 import LaunchTab from "./components/LaunchTab";
@@ -7,30 +8,64 @@ import RevealTab from "./components/RevealTab";
 import StatusTab from "./components/StatusTab";
 import { useActiveChain } from "./signer";
 import { CHAINS_BY_ID, DEFAULT_CHAIN_ID } from "./chains";
+import {
+  BoltIcon,
+  EyeIcon,
+  GridIcon,
+  PulseIcon,
+  RocketIcon,
+} from "./components/icons";
 
 type Tab = "dashboard" | "launch" | "reveal" | "status" | "mint";
 
+const TAB_ICON = {
+  launch: RocketIcon,
+  reveal: EyeIcon,
+  status: PulseIcon,
+  dashboard: GridIcon,
+  mint: BoltIcon,
+} as const;
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [entered, setEntered] = useState(
+    () => localStorage.getItem("launchpad.entered") === "1",
+  );
   const info = useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
 
+  if (!entered) {
+    return (
+      <Landing
+        onEnter={() => {
+          localStorage.setItem("launchpad.entered", "1");
+          setEntered(true);
+        }}
+      />
+    );
+  }
+
   return (
-    <>
+    <div className="app-enter">
       <ConnectBar />
       <div className="tabs">
-        {(["launch", "reveal", "status", "dashboard"] as const).map((t) => (
-          <button
-            key={t}
-            className={tab === t ? "active" : ""}
-            onClick={() => setTab(t)}
-          >
-            {t.toUpperCase()}
-          </button>
-        ))}
+        {(["launch", "reveal", "status", "dashboard"] as const).map((t) => {
+          const Icon = TAB_ICON[t];
+          return (
+            <button
+              key={t}
+              className={tab === t ? "active" : ""}
+              onClick={() => setTab(t)}
+            >
+              <Icon />
+              {t.toUpperCase()}
+            </button>
+          );
+        })}
         <button
           className={`tab-mint ${tab === "mint" ? "active" : ""}`}
           onClick={() => setTab("mint")}
         >
+          <BoltIcon />
           MINT
         </button>
       </div>
@@ -45,6 +80,6 @@ export default function App() {
           {info.explorerUrl.replace("https://", "")}
         </a>
       </div>
-    </>
+    </div>
   );
 }

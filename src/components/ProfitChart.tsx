@@ -44,14 +44,19 @@ export default function ProfitChart({
     const path = points
       .map((p, i) => `${i === 0 ? "M" : "L"}${x(p.t).toFixed(1)},${y(p.cum).toFixed(1)}`)
       .join(" ");
-    return { t0, t1, minC, maxC, x, y, path };
+    // Closed area under the line, down to the zero baseline, for a soft fill.
+    const baseY = y(0n);
+    const area =
+      `${path} L${x(points[points.length - 1].t).toFixed(1)},${baseY.toFixed(1)}` +
+      ` L${x(points[0].t).toFixed(1)},${baseY.toFixed(1)} Z`;
+    return { t0, t1, minC, maxC, x, y, path, area };
   }, [points]);
 
   if (!model) {
     return <p className="dim">No profit events yet — the chart appears with the first mint.</p>;
   }
 
-  const { t0, t1, minC, maxC, x, y, path } = model;
+  const { t0, t1, minC, maxC, x, y, path, area } = model;
   const ticks = niceTicks(minC, maxC);
   const last = points[points.length - 1];
   const positive = last.cum >= 0n;
@@ -90,6 +95,22 @@ export default function ProfitChart({
         role="img"
         aria-label="Cumulative profit over time"
       >
+        <defs>
+          <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
+            <stop
+              offset="0%"
+              stopColor={positive ? "#00c805" : "#ff5f56"}
+              stopOpacity="0.28"
+            />
+            <stop
+              offset="100%"
+              stopColor={positive ? "#00c805" : "#ff5f56"}
+              stopOpacity="0"
+            />
+          </linearGradient>
+        </defs>
+        {/* soft area fill under the line */}
+        <path d={area} fill="url(#profitFill)" stroke="none" />
         {/* recessive grid + y labels (ETH) */}
         {ticks.map((v) => {
           const yy = y(BigInt(Math.round(v * 1e18)));
@@ -126,7 +147,15 @@ export default function ProfitChart({
           </text>
         ))}
         {/* the series */}
-        <path d={path} fill="none" stroke={positive ? "#00c805" : "#ff5f56"} strokeWidth="2" />
+        <path
+          d={path}
+          fill="none"
+          stroke={positive ? "#2bf06a" : "#ff5f56"}
+          strokeWidth="2.25"
+          style={{
+            filter: `drop-shadow(0 0 6px ${positive ? "rgba(0,200,5,0.55)" : "rgba(255,92,87,0.5)"})`,
+          }}
+        />
         {/* crosshair + hovered point */}
         {hovered ? (
           <g>
