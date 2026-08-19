@@ -37,6 +37,18 @@ export const SEADROP_ADDRESS =
   "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5" as const;
 
 /**
+ * ── Launch fee factory (monetization) ────────────────────────────────────────
+ * PaidSeaDropCloneFactory — deploy it ONCE with your wallet (see README), then
+ * paste its address here. While empty, LaunchPad falls back to a free direct
+ * deploy (good for local/self-host). When set, every launch routes through the
+ * factory and pays the on-chain launch fee to your fee recipient.
+ *
+ * The fee amount is read live from the factory (`launchFee()`), so change it
+ * on-chain (setLaunchFee) without touching this file.
+ */
+export const LAUNCH_FACTORY = "" as string;
+
+/**
  * ── OpenSea drop fee ─────────────────────────────────────────────────────────
  * OpenSea's standard SeaDrop fee recipient and primary-sale fee.
  * Verified 2026-08-18 by decoding live drops on Robinhood Chain's SeaDrop:

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { useSigner } from "../signer";
-import { zeroHash } from "viem";
+import { parseEventLogs, zeroHash } from "viem";
 import {
   DEFAULT_DROP_DAYS,
+  LAUNCH_FACTORY,
   OPENSEA_FEE_BPS,
   OPENSEA_FEE_RECIPIENT,
   SEADROP_ADDRESS,
@@ -14,6 +15,7 @@ import {
 import {
   erc721SeaDropAbi,
   erc721SeaDropBytecode,
+  launchFactoryAbi,
   tokenAbi,
 } from "../contracts/seadrop";
 import {
@@ -182,6 +184,20 @@ export default function LaunchTab() {
   const [runError, setRunError] = useState<string | null>(null);
   const [state, setState] = useState<LaunchState | null>(saved);
   const [derived, setDerived] = useState<DerivedParams | null>(null);
+  const [launchFee, setLaunchFee] = useState<bigint>(0n);
+
+  // Read the on-chain launch fee once, if a fee factory is configured.
+  useEffect(() => {
+    if (!LAUNCH_FACTORY || !publicClient) return;
+    publicClient
+      .readContract({
+        address: LAUNCH_FACTORY as `0x${string}`,
+        abi: launchFactoryAbi,
+        functionName: "launchFee",
+      })
+      .then((f) => setLaunchFee(f as bigint))
+      .catch(() => setLaunchFee(0n));
+  }, [publicClient]);
 
   const pendingResume =
     saved && saved.contractAddress && !saved.configureTxHash && !saved.completedAt;
@@ -249,7 +265,13 @@ export default function LaunchTab() {
       { id: "image", label: "Upload pre-reveal image to IPFS", status: "pending" },
       { id: "premeta", label: "Upload pre-reveal metadata to IPFS", status: "pending" },
       { id: "contracturi", label: "Upload collection metadata (contractURI)", status: "pending" },
-      { id: "deploy", label: "TX 1/2 — deploy ERC721SeaDrop", status: "pending" },
+      {
+        id: "deploy",
+        label: LAUNCH_FACTORY
+          ? `TX 1/2 — launch${launchFee > 0n ? ` (fee ${weiToEth(launchFee)} ETH)` : ""}`
+          : "TX 1/2 — deploy ERC721SeaDrop",
+        status: "pending",
+      },
       { id: "configure", label: "TX 2/2 — multiConfigure (supply, drop, payout)", status: "pending" },
       ...(params.royaltyBps
         ? [{ id: "royalty", label: `Optional TX — setRoyaltyInfo (${params.royaltyBps} bps)`, status: "pending" as const }]
@@ -338,25 +360,65 @@ export default function LaunchTab() {
         detail: <IpfsLink uri={`ipfs://${st.contractUriCid}`} />,
       });
 
-      // ── TX 1: deploy ─────────────────────────────────────────────────────
+      // ── TX 1: deploy (via paid factory if configured, else direct) ───────
       updateStep("deploy", { status: "running", detail: "confirm in wallet…" });
       if (!st.contractAddress) {
-        const hash = await walletClient.deployContract({
-          abi: erc721SeaDropAbi,
-          bytecode: erc721SeaDropBytecode,
-          args: [form.name, form.symbol, [SEADROP_ADDRESS]],
-          account: txAccount,
-          chain: robinhoodChain,
-        });
-        st = updateLaunchState({ deployTxHash: hash });
-        setState(st);
-        updateStep("deploy", { detail: "waiting for confirmation…" });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        if (receipt.status !== "success" || !receipt.contractAddress) {
-          throw new Error(`Deploy transaction reverted (${hash})`);
+        if (LAUNCH_FACTORY) {
+          // Paid launch: factory takes the flat fee and deploys a clone owned
+          // by the caller in the same tx.
+          const saltBytes = new Uint8Array(32);
+          crypto.getRandomValues(saltBytes);
+          const salt = `0x${Array.from(saltBytes)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("")}` as `0x${string}`;
+          const { request } = await publicClient.simulateContract({
+            address: LAUNCH_FACTORY as `0x${string}`,
+            abi: launchFactoryAbi,
+            functionName: "launch",
+            args: [form.name, form.symbol, salt],
+            account: txAccount,
+            value: launchFee,
+          });
+          const hash = await walletClient.writeContract(request);
+          st = updateLaunchState({ deployTxHash: hash });
+          setState(st);
+          updateStep("deploy", { detail: "waiting for confirmation…" });
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success") {
+            throw new Error(`Launch transaction reverted (${hash})`);
+          }
+          // Pull the clone address from the CollectionLaunched event.
+          const events = parseEventLogs({
+            abi: launchFactoryAbi,
+            logs: receipt.logs,
+            eventName: "CollectionLaunched",
+          });
+          const collection = (events[0] as unknown as
+            | { args: { collection: `0x${string}` } }
+            | undefined)?.args.collection;
+          if (!collection) {
+            throw new Error("Launch succeeded but no collection address in logs");
+          }
+          st = updateLaunchState({ contractAddress: collection });
+          setState(st);
+        } else {
+          const hash = await walletClient.deployContract({
+            abi: erc721SeaDropAbi,
+            bytecode: erc721SeaDropBytecode,
+            args: [form.name, form.symbol, [SEADROP_ADDRESS]],
+            account: txAccount,
+            chain: robinhoodChain,
+          });
+          st = updateLaunchState({ deployTxHash: hash });
+          setState(st);
+          updateStep("deploy", { detail: "waiting for confirmation…" });
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success" || !receipt.contractAddress) {
+            throw new Error(`Deploy transaction reverted (${hash})`);
+          }
+          st = updateLaunchState({ contractAddress: receipt.contractAddress });
+          setState(st);
         }
-        st = updateLaunchState({ contractAddress: receipt.contractAddress });
-        setState(st);
       }
       updateStep("deploy", {
         status: "done",
@@ -779,6 +841,15 @@ export default function LaunchTab() {
               <dd>{derived.payout}</dd>
               <dt>OpenSea fee</dt>
               <dd>{OPENSEA_FEE_BPS / 100}% of mint price</dd>
+              {LAUNCH_FACTORY ? (
+                <>
+                  <dt>launch fee</dt>
+                  <dd>
+                    {launchFee === 0n ? "FREE" : `${weiToEth(launchFee)} ETH`} (one-off,
+                    paid now)
+                  </dd>
+                </>
+              ) : null}
               <dt>royalties</dt>
               <dd>
                 {derived.royaltyBps

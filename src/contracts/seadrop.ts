@@ -1,4 +1,9 @@
 import artifact from "./ERC721SeaDrop.json";
+import factoryArtifact from "./PaidSeaDropCloneFactory.json";
+
+/** PaidSeaDropCloneFactory — LaunchPad's on-chain launch-fee wrapper. */
+export const launchFactoryAbi = factoryArtifact.abi;
+export const launchFactoryBytecode = factoryArtifact.bytecode as `0x${string}`;
 
 /**
  * Stock ERC721SeaDrop from ProjectOpenSea/seadrop (src/ERC721SeaDrop.sol,

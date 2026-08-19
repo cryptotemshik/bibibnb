@@ -140,6 +140,29 @@ rarities before mint-out. Launch uploads only the pre-reveal assets. When ready:
    (trailing slash required). `BatchMetadataUpdate` is emitted; OpenSea
    refreshes on its own. If an item lags: item page → … → Refresh metadata.
 
+## Charging a launch fee (monetization)
+
+LaunchPad can take a flat on-chain fee for every launch — no backend, no
+accounts, no stored data. You deploy a small factory contract once; from then
+on every launch routes through it and pays the fee to your wallet in the same
+transaction as the deploy.
+
+- **Off by default.** While `LAUNCH_FACTORY` in `src/config.ts` is empty,
+  launches are a free direct deploy (local/self-host).
+- **To turn it on**, deploy `contracts/PaidSeaDropCloneFactory.sol` (full
+  build/deploy/manage steps and an honesty note on what a fee can and can't
+  enforce are in [`contracts/README.md`](contracts/README.md)), paste its
+  address into `LAUNCH_FACTORY`, and redeploy the site.
+- The fee amount is read live from the factory (`launchFee()`) and is
+  owner-settable on-chain, so you change pricing without touching code.
+- The factory deploys OpenSea `ERC721SeaDropCloneable` clones — real,
+  OpenSea-compatible SeaDrop collections owned by the creator. Verified against
+  the live SeaDrop with a fork test.
+
+Accounts / fiat subscriptions are a possible later phase (they need a real
+backend, database, auth, and Stripe — i.e. running a money-handling business);
+the on-chain fee covers "charge per launch" with none of that.
+
 ## Signing: browser wallet vs. fast mode
 
 Two ways to sign, chosen with the **wallet | fast ⚡** toggle in the top bar:
