@@ -7,7 +7,7 @@ export function shortAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export default function ConnectBar() {
+export default function ConnectBar({ onHome }: { onHome?: () => void }) {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
@@ -32,7 +32,12 @@ export default function ConnectBar() {
   return (
     <div>
       <div className="topbar">
-        <h1>
+        <h1
+          className={onHome ? "brand-home" : undefined}
+          onClick={onHome}
+          role={onHome ? "button" : undefined}
+          title={onHome ? "back to cover" : undefined}
+        >
           <span className="brand-mark" aria-hidden>◆</span>
           LaunchPad
           <span className="brand-dim">&nbsp;· OpenSea EVM</span>

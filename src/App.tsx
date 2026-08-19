@@ -59,7 +59,12 @@ export default function App() {
 
   return (
     <div className="app-enter">
-      <ConnectBar />
+      <ConnectBar
+        onHome={() => {
+          localStorage.removeItem("launchpad.entered");
+          setEntered(false);
+        }}
+      />
       <div className="tabs">
         {(["launch", "reveal", "status", "live", "wallets", "dashboard"] as const).map((t) => {
           const Icon = TAB_ICON[t];
