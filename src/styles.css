@@ -1282,3 +1282,19 @@ tr.project-detail td {
 .click-stat b {
   color: var(--green-bright);
 }
+
+/* Duration inputs (drop window) */
+.dur-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.dur-field {
+  width: 92px;
+  flex: none;
+}
+.dur-preset {
+  flex: 1;
+  min-width: 200px;
+}

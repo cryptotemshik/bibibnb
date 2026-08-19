@@ -18,6 +18,7 @@ import {
 import { loadLaunchState } from "../lib/launchState";
 import { upsertProject } from "../lib/projects";
 import { CollectionDetail, ProfitBlock, type ProfitView } from "./CollectionDetail";
+import DropWindowPanel from "./DropWindowPanel";
 import SecondaryMarketPanel from "./SecondaryMarketPanel";
 import { TxLink } from "./Bits";
 
@@ -91,7 +92,11 @@ export default function StatusTab() {
   }
 
   async function ownerTx(
-    functionName: "updatePublicDrop" | "setMaxSupply" | "setTransferValidator",
+    functionName:
+      | "updatePublicDrop"
+      | "setMaxSupply"
+      | "setTransferValidator"
+      | "updateDropURI",
     args: unknown[],
   ) {
     if (!walletClient || !publicClient || !address || !txAccount) return;
@@ -148,6 +153,37 @@ export default function StatusTab() {
     } catch (e) {
       setActionMsg(<span className="error">{(e as Error).message}</span>);
     }
+  }
+
+  /** Update only the window, leaving price / limit / fee untouched. */
+  async function sendSetWindow(startTime: number, endTime: number) {
+    if (!status || !chainInfo) return;
+    try {
+      if (endTime <= startTime) throw new Error("End time must be after start time");
+      await ownerTx("updatePublicDrop", [
+        chainInfo.seaDrop,
+        {
+          mintPrice: status.publicDrop.mintPrice,
+          startTime,
+          endTime,
+          maxTotalMintableByWallet: status.publicDrop.maxTotalMintableByWallet,
+          feeBps: status.publicDrop.feeBps || chainInfo.feeBps,
+          restrictFeeRecipients: true,
+        },
+      ]);
+    } catch (e) {
+      setActionMsg(<span className="error">{(e as Error).message}</span>);
+    }
+  }
+
+  /** Publish stage metadata (name/description) on-chain via updateDropURI. */
+  async function sendSetStageMeta(dropUriJson: string) {
+    if (!chainInfo) return;
+    // Inline data: URI — no IPFS round-trip for a couple of short strings.
+    const uri = `data:application/json;base64,${btoa(
+      String.fromCharCode(...new TextEncoder().encode(dropUriJson)),
+    )}`;
+    await ownerTx("updateDropURI", [chainInfo.seaDrop, uri]);
   }
 
   async function sendSetMaxSupply() {
@@ -215,6 +251,14 @@ export default function StatusTab() {
               <ProfitBlock b={profit.breakdown} ethUsd={profit.ethUsd} />
             ) : null}
           </div>
+
+          <DropWindowPanel
+            status={status}
+            isOwner={isOwner}
+            busy={actionBusy || wrongNetwork}
+            onSetWindow={sendSetWindow}
+            onSetStageMeta={sendSetStageMeta}
+          />
 
           {isOwner ? (
             <div className="panel">

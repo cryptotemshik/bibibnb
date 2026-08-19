@@ -217,6 +217,40 @@ There is no server and no key database anywhere in this project — a backend th
 stored keys would concentrate every wallet behind one breachable door, which is
 strictly worse than one key in one browser tab.
 
+## Drop window — and why a stage can come back shorter
+
+SeaDrop stores an **absolute** `startTime` and `endTime`. OpenSea's "Edit drop
+stage" dialog has **no end-time field** — only a *Duration*. A duration is not a
+window until you say what it counts from, so pressing **Update** there makes
+OpenSea re-derive the end time; on a stage that is **already running** the
+window can come back shorter than it was, and repeating it can whittle a drop
+down to minutes.
+
+The Status tab's **Drop window** panel is the fix:
+
+- Live readout of start, end, total length, elapsed and remaining — a collapsed
+  window is impossible to miss.
+- Loud warnings when the drop is closed, nearly over, or when the whole window
+  is under ten minutes (which is what the duration-dialog failure looks like).
+- **Set the end by duration counted from now**, with 1h / 24h / 7d / 30d
+  presets and an "keep the original start time" toggle. It sends one
+  `updatePublicDrop` with absolute times; price, per-wallet limit and fee are
+  passed through unchanged.
+
+After any edit on OpenSea, press **read** and check this panel.
+
+The Launch form also shows the **window length** next to the end time, which is
+the same number OpenSea's dialog calls Duration.
+
+### Stage name
+
+SeaDrop's public drop struct has **no name field**. The "Stage Name" OpenSea
+shows lives in OpenSea's database, set through their Edit-stage dialog. The
+only on-chain home for stage metadata is `updateDropURI`, which the panel can
+publish (name + description, as an inline `data:` JSON) — but no collection on
+these chains publishes one, so expect OpenSea to keep showing whatever was
+typed in its own dialog.
+
 ## Secondary-market currency (ETH/WETH vs USDG)
 
 Three separate things, often confused:

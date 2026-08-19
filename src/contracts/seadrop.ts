@@ -117,6 +117,16 @@ export const tokenAbi = [
   },
   {
     type: "function",
+    name: "updateDropURI",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "seaDropImpl", type: "address" },
+      { name: "dropURI", type: "string" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
     name: "setTransferValidator",
     stateMutability: "nonpayable",
     inputs: [{ name: "newValidator", type: "address" }],

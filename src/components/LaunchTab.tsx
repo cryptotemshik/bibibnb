@@ -22,6 +22,7 @@ import {
   weiToEth,
 } from "../lib/convert";
 import { importCollection } from "../lib/importCollection";
+import { formatDuration } from "../lib/dropWindow";
 import { pinFile, pinJson, testPinataJwt } from "../lib/pinata";
 import { forgetPinataJwt, loadPinataJwt, savePinataJwt } from "../lib/pinataKey";
 import { upsertProject } from "../lib/projects";
@@ -989,6 +990,9 @@ export default function LaunchTab() {
             {form.endLocal ? (
               <span className="hint">= {safeUtc(form.endLocal)}</span>
             ) : null}
+            <span className="hint ok">
+              window length: {windowLengthLabel(form.startLocal, form.endLocal)}
+            </span>
           </div>
           <div className="field">
             <label>creator payout address (payouts stream here on every mint)</label>
@@ -1300,6 +1304,23 @@ function useObjectUrl(file: File | null): string | null {
     return () => URL.revokeObjectURL(next);
   }, [file]);
   return url;
+}
+
+/**
+ * How long the drop will actually be open — the same number OpenSea's stage
+ * dialog shows as "Duration", so the two can be compared at a glance.
+ */
+function windowLengthLabel(startLocal: string, endLocal: string): string {
+  try {
+    const start = datetimeLocalToUnix(startLocal);
+    const end = endLocal
+      ? datetimeLocalToUnix(endLocal)
+      : start + DEFAULT_DROP_DAYS * 86_400;
+    if (end <= start) return "invalid — end is not after start";
+    return `${formatDuration(end - start)}${endLocal ? "" : " (default)"}`;
+  } catch {
+    return "set a start time first";
+  }
 }
 
 function safeUtc(local: string): string {
