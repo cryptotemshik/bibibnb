@@ -39,6 +39,8 @@ export interface LaunchState {
   endTime: number;
   // IPFS steps
   prerevealImageCid?: string;
+  /** Collection picture (OpenSea logo). Falls back to the pre-reveal image. */
+  collectionImageCid?: string;
   prerevealMetadataCid?: string;
   contractUriCid?: string;
   // Chain steps

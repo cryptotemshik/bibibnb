@@ -23,6 +23,7 @@ import {
 } from "../lib/convert";
 import { importCollection } from "../lib/importCollection";
 import { pinFile, pinJson, testPinataJwt } from "../lib/pinata";
+import { forgetPinataJwt, loadPinataJwt, savePinataJwt } from "../lib/pinataKey";
 import { upsertProject } from "../lib/projects";
 import {
   clearLaunchState,
@@ -172,8 +173,10 @@ export default function LaunchTab() {
     startLocal: nowPlusMinutesLocalInput(60),
     ...(saved && !saved.completedAt ? saved.form : {}),
   }));
-  const [jwt, setJwt] = useState("");
+  const [jwt, setJwt] = useState(loadPinataJwt);
+  const [rememberJwt, setRememberJwt] = useState(() => loadPinataJwt() !== "");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [collectionImageFile, setCollectionImageFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [phase, setPhase] = useState<Phase>(
@@ -189,17 +192,8 @@ export default function LaunchTab() {
   const [importNotes, setImportNotes] = useState<string[] | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Object URL for the picked pre-reveal image, revoked when it changes.
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(imageFile);
-    setImagePreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [imageFile]);
+  const imagePreview = useObjectUrl(imageFile);
+  const collectionImagePreview = useObjectUrl(collectionImageFile);
 
   // Read the on-chain launch fee once, if a fee factory is configured.
   useEffect(() => {
@@ -320,6 +314,15 @@ export default function LaunchTab() {
     const stepList: StepView[] = [
       { id: "auth", label: "Verify Pinata JWT", status: "pending" },
       { id: "image", label: "Upload pre-reveal image to IPFS", status: "pending" },
+      ...(collectionImageFile || st.collectionImageCid
+        ? [
+            {
+              id: "collimage",
+              label: "Upload collection picture to IPFS",
+              status: "pending" as const,
+            },
+          ]
+        : []),
       { id: "premeta", label: "Upload pre-reveal metadata to IPFS", status: "pending" },
       { id: "contracturi", label: "Upload collection metadata (contractURI)", status: "pending" },
       {
@@ -367,6 +370,26 @@ export default function LaunchTab() {
         detail: <IpfsLink uri={`ipfs://${st.prerevealImageCid}`} />,
       });
 
+      // Collection picture — OpenSea's collection logo. Optional: without one
+      // the contractURI reuses the pre-reveal image, as it did before.
+      if (collectionImageFile || st.collectionImageCid) {
+        updateStep("collimage", { status: "running" });
+        if (!st.collectionImageCid) {
+          const cid = await pinFile(
+            jwt,
+            collectionImageFile!,
+            `${form.name} collection picture`,
+            (p) => updateStep("collimage", { progress: p }),
+          );
+          st = updateLaunchState({ collectionImageCid: cid });
+          setState(st);
+        }
+        updateStep("collimage", {
+          status: "done",
+          detail: <IpfsLink uri={`ipfs://${st.collectionImageCid}`} />,
+        });
+      }
+
       updateStep("premeta", { status: "running" });
       if (!st.prerevealMetadataCid) {
         // One shared unrevealed JSON for every token id: ERC721SeaDrop returns
@@ -403,7 +426,9 @@ export default function LaunchTab() {
           {
             name: form.name,
             description: form.description,
-            image: `ipfs://${st.prerevealImageCid}`,
+            // Collection logo on OpenSea — its own picture when one was
+            // uploaded, else the pre-reveal art.
+            image: `ipfs://${st.collectionImageCid ?? st.prerevealImageCid}`,
             ...(form.websiteUrl.trim()
               ? { external_link: form.websiteUrl.trim() }
               : {}),
@@ -621,6 +646,8 @@ export default function LaunchTab() {
           clearLaunchState();
           setState(null);
           setForm({ ...EMPTY_FORM, startLocal: nowPlusMinutesLocalInput(60) });
+          setImageFile(null);
+          setCollectionImageFile(null);
           setPhase("form");
         }}
       />
@@ -750,7 +777,34 @@ export default function LaunchTab() {
             />
           </div>
           <div className="field">
-            <label>pre-reveal image</label>
+            <label>collection picture (logo on OpenSea)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setCollectionImageFile(e.target.files?.[0] ?? null)}
+            />
+            <span className="hint">
+              the collection&apos;s own avatar — square works best. Optional: if
+              you skip it, the pre-reveal image is used.
+            </span>
+            {collectionImageFile ? (
+              <div className="file-pick">
+                <img src={collectionImagePreview ?? undefined} alt="" />
+                <span>
+                  {collectionImageFile.name}{" "}
+                  <span className="dim">
+                    ({Math.round(collectionImageFile.size / 1024).toLocaleString()} KB)
+                  </span>
+                </span>
+              </div>
+            ) : saved?.collectionImageCid && !state?.completedAt ? (
+              <span className="hint ok">
+                already uploaded in a previous attempt — re-selecting is optional
+              </span>
+            ) : null}
+          </div>
+          <div className="field">
+            <label>pre-reveal image (what every token shows)</label>
             <input
               type="file"
               accept="image/*"
@@ -914,14 +968,60 @@ export default function LaunchTab() {
           <code>pinJSONToIPFS</code>, or just Admin).
         </p>
         <div className="field">
-          <label>Pinata JWT (kept in memory only — never stored, re-paste each session)</label>
+          <label>
+            Pinata JWT{" "}
+            {rememberJwt
+              ? "(saved in this browser)"
+              : "(kept in memory only — re-paste each session)"}
+          </label>
           <input
             type="password"
             value={jwt}
-            onChange={(e) => setJwt(e.target.value)}
+            onChange={(e) => {
+              setJwt(e.target.value);
+              if (rememberJwt) savePinataJwt(e.target.value);
+            }}
             placeholder="eyJ…"
             autoComplete="off"
           />
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+              marginTop: 6,
+            }}
+          >
+            <label
+              className="dim"
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <input
+                type="checkbox"
+                checked={rememberJwt}
+                onChange={(e) => {
+                  setRememberJwt(e.target.checked);
+                  if (e.target.checked) savePinataJwt(jwt);
+                  else forgetPinataJwt();
+                }}
+              />
+              remember this key in this browser (prefills next time)
+            </label>
+            {rememberJwt ? (
+              <button
+                className="secondary"
+                style={{ padding: "2px 10px", fontSize: 11 }}
+                onClick={() => {
+                  forgetPinataJwt();
+                  setRememberJwt(false);
+                  setJwt("");
+                }}
+              >
+                forget key
+              </button>
+            ) : null}
+          </div>
           <span className="hint warn">
             Pinata&apos;s dialog shows three values — paste the <b>third</b>,
             &ldquo;JWT (secret access token)&rdquo;, which starts with{" "}
@@ -1021,6 +1121,22 @@ export default function LaunchTab() {
                     }`
                   : "none (can set later in OpenSea collection settings)"}
               </dd>
+              <dt>collection picture</dt>
+              <dd>
+                {collectionImageFile
+                  ? collectionImageFile.name
+                  : saved?.collectionImageCid
+                    ? "already uploaded"
+                    : "not set — the pre-reveal image will be used"}
+              </dd>
+              <dt>pre-reveal image</dt>
+              <dd>
+                {imageFile
+                  ? imageFile.name
+                  : saved?.prerevealImageCid
+                    ? "already uploaded"
+                    : "—"}
+              </dd>
               <dt>website</dt>
               <dd>{form.websiteUrl.trim() || "not set"}</dd>
               <dt>provenance</dt>
@@ -1066,6 +1182,21 @@ export default function LaunchTab() {
       ) : null}
     </div>
   );
+}
+
+/** Preview URL for a picked file, revoked when the file changes or unmounts. */
+function useObjectUrl(file: File | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      setUrl(null);
+      return;
+    }
+    const next = URL.createObjectURL(file);
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [file]);
+  return url;
 }
 
 function safeUtc(local: string): string {

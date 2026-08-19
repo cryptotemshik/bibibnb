@@ -10,6 +10,7 @@ import {
   type StudioRow,
 } from "../lib/csv";
 import { pinDirectory, testPinataJwt } from "../lib/pinata";
+import { loadPinataJwt, savePinataJwt } from "../lib/pinataKey";
 import { loadLaunchState, updateLaunchState } from "../lib/launchState";
 import { AddrLink, IpfsLink, Steps, TxLink, type StepView } from "./Bits";
 
@@ -22,7 +23,7 @@ export default function RevealTab() {
 
   const saved = useMemo(loadLaunchState, []);
   const [contract, setContract] = useState(saved?.contractAddress ?? "");
-  const [jwt, setJwt] = useState("");
+  const [jwt, setJwt] = useState(loadPinataJwt);
   const [images, setImages] = useState<File[]>([]);
   const [csvText, setCsvText] = useState<string | null>(null);
   const [csvName, setCsvName] = useState("");
@@ -268,11 +269,18 @@ export default function RevealTab() {
             </span>
           </div>
           <div className="field wide">
-            <label>Pinata JWT (memory only)</label>
+            <label>
+              Pinata JWT{" "}
+              {loadPinataJwt() ? "(saved in this browser)" : "(memory only)"}
+            </label>
             <input
               type="password"
               value={jwt}
-              onChange={(e) => setJwt(e.target.value)}
+              onChange={(e) => {
+                setJwt(e.target.value);
+                // Keep a remembered key in sync; never starts remembering here.
+                if (loadPinataJwt()) savePinataJwt(e.target.value);
+              }}
               placeholder="eyJ…"
               autoComplete="off"
             />
