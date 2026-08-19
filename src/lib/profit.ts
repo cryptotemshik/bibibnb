@@ -47,33 +47,67 @@ export interface InternalTxItem {
   value: string;
   from: { hash: string };
   to: { hash: string } | null;
+  timestamp?: string;
+}
+
+/** An amount that happened at a point in time (unix seconds). */
+export interface TimedAmount {
+  t: number;
+  wei: bigint;
 }
 
 /**
- * Sum internal native transfers `seaport → receiver`. This is how OpenSea
- * pays out creator royalties on secondary sales. It's an ESTIMATE: it counts
- * every Seaport payout to that address (all collections sharing the same
- * royalty receiver, and the receiver's own trading proceeds if they sell
- * through OpenSea from the same wallet).
+ * Extract internal native transfers `seaport → receiver` as timed amounts.
+ * This is how OpenSea pays out creator royalties on secondary sales. It's an
+ * ESTIMATE: it counts every Seaport payout to that address (all collections
+ * sharing the same royalty receiver, and the receiver's own trading proceeds
+ * if they sell through OpenSea from the same wallet).
  */
-export function sumSeaportPayouts(
+export function extractSeaportPayoutEvents(
   items: InternalTxItem[],
   seaport: string,
   receiver: string,
-): bigint {
+): TimedAmount[] {
   const s = seaport.toLowerCase();
   const r = receiver.toLowerCase();
-  let total = 0n;
+  const events: TimedAmount[] = [];
   for (const it of items) {
     if (
       it.from.hash.toLowerCase() === s &&
       it.to?.hash.toLowerCase() === r &&
       it.value !== "0"
     ) {
-      total += BigInt(it.value);
+      events.push({
+        t: it.timestamp ? Math.floor(new Date(it.timestamp).getTime() / 1000) : 0,
+        wei: BigInt(it.value),
+      });
     }
   }
-  return total;
+  return events;
+}
+
+/** Sum of `extractSeaportPayoutEvents`. */
+export function sumSeaportPayouts(
+  items: InternalTxItem[],
+  seaport: string,
+  receiver: string,
+): bigint {
+  return extractSeaportPayoutEvents(items, seaport, receiver).reduce(
+    (acc, e) => acc + e.wei,
+    0n,
+  );
+}
+
+/**
+ * Secondary trading volume implied by royalties: volume ≈ royalties / bps.
+ * Only computable when the collection actually charges royalties.
+ */
+export function estimateVolumeFromRoyalties(
+  royaltiesWei: bigint,
+  royaltyBps: number,
+): bigint | null {
+  if (royaltyBps <= 0) return null;
+  return (royaltiesWei * 10_000n) / BigInt(royaltyBps);
 }
 
 export interface ProfitBreakdown {

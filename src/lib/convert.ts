@@ -93,3 +93,23 @@ export function normalizeProvenanceHash(input: string): `0x${string}` | null {
 export function isAddress(input: string): input is `0x${string}` {
   return /^0x[0-9a-fA-F]{40}$/.test(input.trim());
 }
+
+/**
+ * Pull a contract address out of whatever the user pastes: a bare address, an
+ * OpenSea collection/item URL, or a Blockscout address URL.
+ */
+export function parseCollectionInput(input: string): `0x${string}` | null {
+  const trimmed = input.trim();
+  if (isAddress(trimmed)) return trimmed as `0x${string}`;
+  const patterns = [
+    // opensea.io/assets/robinhood/0x…[/tokenId], opensea.io/item/robinhood/0x…/1
+    /opensea\.io\/(?:assets|item)\/[a-z0-9_-]+\/(0x[0-9a-fA-F]{40})/,
+    // blockscout /address/0x… or /token/0x…
+    /\/(?:address|token)\/(0x[0-9a-fA-F]{40})/,
+  ];
+  for (const re of patterns) {
+    const m = trimmed.match(re);
+    if (m) return m[1] as `0x${string}`;
+  }
+  return null;
+}

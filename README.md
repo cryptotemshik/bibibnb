@@ -140,6 +140,32 @@ rarities before mint-out. Launch uploads only the pre-reveal assets. When ready:
    (trailing slash required). `BatchMetadataUpdate` is emitted; OpenSea
    refreshes on its own. If an item lags: item page → … → Refresh metadata.
 
+## Dashboard tab
+
+All your projects in one place. Launches made from this browser register
+themselves; any other collection can be tracked by pasting its address or an
+OpenSea/Blockscout link (the registry is addresses-only, stored locally).
+
+- **Total profit** across projects with a **live cumulative chart** (crosshair
+  tooltip, auto-refresh every 30s) built from real events: mint proceeds at
+  their block times, royalty payouts at their tx times, launch gas at deploy
+  time. Royalty payouts are deduped when collections share a receiver wallet.
+- **Table**: collection, minted/supply, volume≈ (secondary volume derived from
+  royalty payouts — needs royalties > 0), deployer, profit (green/red), date.
+  Click a column header to sort; "only mine" filters to collections owned by
+  the connected wallet. Click a row to expand the full Status-style detail.
+
+## Mint tab
+
+Quick manual public mint — one wallet, one click, the same `mintPublic` call
+the drop page makes. Paste a collection address or OpenSea link, see the drop
+state (price, countdown, per-wallet limit), pick a quantity, sign. Minted token
+ids come back with direct OpenSea item links; listing happens on the item
+page's **Sell** button (first listing asks for a one-time approval in your
+wallet). There is deliberately no automation, no sniping, no multi-wallet, and
+no in-app listing — OpenSea's order book API needs an API key and a backend,
+and LaunchPad has neither.
+
 ## Status tab
 
 Read-only dashboard for any pasted/saved contract: minted vs maxSupply, decoded

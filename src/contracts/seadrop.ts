@@ -147,8 +147,20 @@ export const tokenAbi = [
   },
 ] as const;
 
-/** Minimal ABI for reading drop state off the canonical SeaDrop contract. */
+/** Minimal ABI for the canonical SeaDrop contract (reads + public mint). */
 export const seaDropAbi = [
+  {
+    type: "function",
+    name: "mintPublic",
+    stateMutability: "payable",
+    inputs: [
+      { name: "nftContract", type: "address" },
+      { name: "feeRecipient", type: "address" },
+      { name: "minterIfNotPayer", type: "address" },
+      { name: "quantity", type: "uint256" },
+    ],
+    outputs: [],
+  },
   {
     type: "function",
     name: "getPublicDrop",

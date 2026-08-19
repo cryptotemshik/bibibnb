@@ -82,6 +82,10 @@ export function openSeaCollectionUrl(contract: string): string {
   return `https://opensea.io/assets/${OPENSEA_CHAIN_SLUG}/${contract}`;
 }
 
+export function openSeaItemUrl(contract: string, tokenId: string | number | bigint): string {
+  return `https://opensea.io/item/${OPENSEA_CHAIN_SLUG}/${contract}/${tokenId}`;
+}
+
 /**
  * Prefilled X (Twitter) post composer. Nothing is auto-posted — the user
  * reviews and edits in X's own UI. The actual "Connect X" for a collection is

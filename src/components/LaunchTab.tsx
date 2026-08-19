@@ -27,6 +27,7 @@ import {
   weiToEth,
 } from "../lib/convert";
 import { pinFile, pinJson, testPinataJwt } from "../lib/pinata";
+import { upsertProject } from "../lib/projects";
 import {
   clearLaunchState,
   loadLaunchState,
@@ -477,6 +478,11 @@ export default function LaunchTab() {
 
       st = updateLaunchState({ completedAt: Date.now() });
       setState(st);
+      upsertProject({
+        address: st.contractAddress!,
+        name: form.name,
+        source: "launch",
+      });
       setPhase("done");
     } catch (e) {
       // Mark the step that was running as failed; progress stays saved.
