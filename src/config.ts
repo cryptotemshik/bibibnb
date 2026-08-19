@@ -60,6 +60,16 @@ export function openSeaCollectionUrl(contract: string): string {
   return `https://opensea.io/assets/${OPENSEA_CHAIN_SLUG}/${contract}`;
 }
 
+/**
+ * Prefilled X (Twitter) post composer. Nothing is auto-posted — the user
+ * reviews and edits in X's own UI. The actual "Connect X" for a collection is
+ * an OAuth flow that exists only inside opensea.io settings.
+ */
+export function xShareUrl(text: string, url: string): string {
+  const params = new URLSearchParams({ text, url });
+  return `https://x.com/intent/post?${params.toString()}`;
+}
+
 export function explorerAddressUrl(address: string): string {
   return `${EXPLORER_URL}/address/${address}`;
 }

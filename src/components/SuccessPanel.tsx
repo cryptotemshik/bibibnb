@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { openSeaCollectionUrl } from "../config";
+import { openSeaCollectionUrl, xShareUrl } from "../config";
 import { formatCountdown, unixToLocalAndUtc } from "../lib/convert";
 import type { LaunchState } from "../lib/launchState";
 import { AddrLink, TxLink } from "./Bits";
@@ -100,6 +100,43 @@ export default function SuccessPanel({
             BatchMetadataUpdate, so this is rarely needed).
           </li>
         </ol>
+      </div>
+
+      <div className="panel">
+        <h2>Socials</h2>
+        <p className="dim">
+          The X (Twitter) connection itself is an OAuth flow that only exists
+          on opensea.io — no site can do it for you. These buttons take you
+          straight to the right places:
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            className="secondary"
+            onClick={() => window.open(openSeaCollectionUrl(address), "_blank")}
+          >
+            connect X → OpenSea: Edit → Links → Connect
+          </button>
+          <button
+            className="secondary"
+            onClick={() =>
+              window.open(
+                xShareUrl(
+                  `${state.form.name} — minting on OpenSea. Mint opens ${
+                    unixToLocalAndUtc(state.startTime).utc
+                  }.`,
+                  openSeaCollectionUrl(address),
+                ),
+                "_blank",
+              )
+            }
+          >
+            share the drop on X
+          </button>
+        </div>
+        <p className="dim" style={{ marginBottom: 0 }}>
+          The share button only opens X&apos;s composer with a prefilled post —
+          you review and edit before anything is published.
+        </p>
       </div>
 
       <div className="panel">

@@ -5,6 +5,7 @@ import {
   OPENSEA_FEE_BPS,
   SEADROP_ADDRESS,
   openSeaCollectionUrl,
+  xShareUrl,
 } from "../config";
 import { seaDropAbi, tokenAbi } from "../contracts/seadrop";
 import {
@@ -332,7 +333,23 @@ export default function StatusTab() {
                 >
                   OpenSea
                 </a>{" "}
-                · <AddrLink address={contract} />
+                · <AddrLink address={contract} /> ·{" "}
+                <a
+                  href={xShareUrl(
+                    `${status.name} — live on OpenSea.`,
+                    openSeaCollectionUrl(contract),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  share on X
+                </a>
+                {isOwner ? (
+                  <div className="dim">
+                    connect X (Twitter): OpenSea → collection → Edit → Links →
+                    Connect (OAuth — only possible on opensea.io)
+                  </div>
+                ) : null}
               </dd>
             </dl>
           </div>
