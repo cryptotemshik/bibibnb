@@ -317,7 +317,8 @@ ul.errors {
 }
 .kv dd {
   margin: 0;
-  word-break: break-all;
+  /* Break long hashes/addresses anywhere, but never split normal words. */
+  overflow-wrap: anywhere;
 }
 
 .checklist {
