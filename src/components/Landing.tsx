@@ -46,6 +46,11 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       </div>
 
       <div className="landing-center">
+        {/* TEMP greeting for a friend — remove when done. */}
+        <div className="hello-fahri">
+          <span className="hello-fahri-text">привет, Фахри</span>
+        </div>
+
         <div className="landing-mark" aria-hidden>
           <span>◆</span>
         </div>
