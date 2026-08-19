@@ -449,3 +449,53 @@ tr.project-detail td {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  #root {
+    padding: 16px 12px 80px;
+  }
+  .topbar {
+    gap: 10px;
+  }
+  h1 {
+    font-size: 17px;
+  }
+  /* Tabs become clean bordered pills: nav 2-per-row, Mint on its own row. */
+  .tabs {
+    gap: 6px;
+  }
+  .tabs button {
+    flex: 1 1 40%;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 8px;
+  }
+  .tabs button.active {
+    border-color: var(--green);
+  }
+  .tabs button.tab-mint {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .panel {
+    padding: 14px;
+  }
+  /* Profit hero shrinks so it never clips on a phone. */
+  .profit-big {
+    font-size: 26px;
+  }
+  .profit-big .profit-usd {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+    font-size: 14px;
+  }
+  /* Owner-action buttons go full width so they stack tidily. */
+  .grid button.primary,
+  .grid button.secondary,
+  .grid button.danger {
+    width: 100%;
+  }
+}
