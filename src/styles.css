@@ -172,9 +172,14 @@ h1 .cursor {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Let the field shrink inside its grid/flex track instead of overflowing. */
+  min-width: 0;
 }
 .field.wide {
   grid-column: 1 / -1;
+}
+.field .hint {
+  overflow-wrap: anywhere;
 }
 .field label {
   color: var(--dim);
@@ -196,6 +201,10 @@ select {
   font-size: 13px;
   padding: 8px 10px;
   width: 100%;
+  /* min-width:0 lets inputs shrink in flex rows; max-width caps the native
+     file-input widget so it never pushes past the viewport. */
+  min-width: 0;
+  max-width: 100%;
 }
 input:focus,
 textarea:focus {
@@ -207,6 +216,10 @@ input[type="checkbox"] {
 }
 input[type="file"] {
   padding: 6px;
+  /* Native file inputs don't honor width well; clip the overflowing filename
+     text rather than letting it blow out the row. */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 button.primary,
