@@ -9,7 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:cf": "npm run build && npx -y wrangler pages deploy"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",

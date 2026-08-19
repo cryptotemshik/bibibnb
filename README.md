@@ -80,6 +80,15 @@ npm run build      # typecheck + production build into dist/
 
 Deploy anywhere static (no backend, no database):
 
+- **Cloudflare Pages** (config included — `wrangler.toml`):
+  - *Git-connected (recommended)*: Cloudflare dashboard → Workers & Pages →
+    Create → Pages → Connect to Git → pick this repo, build command
+    `npm run build`, output `dist` (both are auto-detected from
+    `wrangler.toml`). Every push redeploys automatically.
+  - *CLI*: `CLOUDFLARE_API_TOKEN=<token> npm run deploy:cf`
+    (token: Cloudflare dashboard → My Profile → API Tokens → template
+    "Edit Cloudflare Workers"/Pages edit). First run creates the `launchpad`
+    Pages project and prints the `*.pages.dev` URL.
 - **Vercel**: `vercel` in the repo root — framework preset "Vite", build
   command `npm run build`, output `dist`. Or just import the repo in the Vercel
   dashboard.
