@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
-import { CHAIN_ID } from "../config";
+import { usePublicClient } from "wagmi";
+import { useSigner } from "../signer";
 import { tokenAbi } from "../contracts/seadrop";
 import { isAddress } from "../lib/convert";
 import {
@@ -16,10 +16,8 @@ import { AddrLink, IpfsLink, Steps, TxLink, type StepView } from "./Bits";
 type Phase = "form" | "running" | "done";
 
 export default function RevealTab() {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const { address, txAccount, isConnected, walletClient, wrongNetwork } = useSigner();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
 
   const saved = useMemo(loadLaunchState, []);
   const [contract, setContract] = useState(saved?.contractAddress ?? "");
@@ -35,7 +33,6 @@ export default function RevealTab() {
     saved?.revealTxHash ?? null,
   );
 
-  const wrongNetwork = isConnected && chainId !== CHAIN_ID;
   const usingSaved = saved?.contractAddress === contract && contract !== "";
 
   function updateStep(id: string, patch: Partial<StepView>) {
@@ -68,8 +65,9 @@ export default function RevealTab() {
     if (!isAddress(contract)) errs.push("Contract address is not valid");
     if (!jwt.trim()) errs.push("Pinata JWT is required");
     if (images.length === 0) errs.push("Select the images folder (1.png … N.png)");
-    if (!walletClient || !publicClient || !address) errs.push("Connect your wallet");
-    if (chainId !== CHAIN_ID) errs.push("Switch to Robinhood Chain first");
+    if (!walletClient || !publicClient || !address || !txAccount)
+      errs.push("Connect a wallet or load a fast-mode key");
+    if (wrongNetwork) errs.push("Switch to Robinhood Chain first");
     if (errs.length > 0) {
       setErrors(errs);
       return;
@@ -196,7 +194,7 @@ export default function RevealTab() {
         abi: tokenAbi,
         functionName: "setBaseURI",
         args: [newBaseURI],
-        account: address!,
+        account: txAccount!,
       });
       const hash = await walletClient!.writeContract(request);
       updateStep("tx", { detail: "waiting for confirmation…" });

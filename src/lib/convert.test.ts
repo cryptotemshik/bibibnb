@@ -4,6 +4,7 @@ import {
   ethToWei,
   formatCountdown,
   isAddress,
+  normalizePrivateKey,
   normalizeProvenanceHash,
   UINT80_MAX,
   weiToEth,
@@ -76,6 +77,22 @@ describe("normalizeProvenanceHash", () => {
   it("rejects wrong lengths and non-hex", () => {
     expect(() => normalizeProvenanceHash("abc")).toThrow();
     expect(() => normalizeProvenanceHash(`0x${"g".repeat(64)}`)).toThrow();
+  });
+});
+
+describe("normalizePrivateKey", () => {
+  const hex = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318";
+  it("accepts 64 hex with or without 0x and lowercases", () => {
+    expect(normalizePrivateKey(hex)).toBe(`0x${hex}`);
+    expect(normalizePrivateKey(`0x${hex}`)).toBe(`0x${hex}`);
+    expect(normalizePrivateKey(`0X${hex.toUpperCase()}`)).toBe(`0x${hex}`);
+    expect(normalizePrivateKey(`  ${hex}  `)).toBe(`0x${hex}`);
+  });
+  it("rejects wrong length or non-hex", () => {
+    expect(() => normalizePrivateKey("")).toThrow();
+    expect(() => normalizePrivateKey("0x1234")).toThrow();
+    expect(() => normalizePrivateKey("z".repeat(64))).toThrow();
+    expect(() => normalizePrivateKey(hex + "00")).toThrow();
   });
 });
 

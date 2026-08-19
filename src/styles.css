@@ -81,6 +81,34 @@ h1 .cursor {
   color: var(--err);
   border-color: var(--err);
 }
+.pill.warn {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mode-toggle button {
+  background: transparent;
+  border: none;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.mode-toggle button.active {
+  background: var(--green);
+  color: #032410;
+  font-weight: 700;
+}
+.signer-panel {
+  border-color: var(--warn);
+}
 
 .tabs {
   display: flex;

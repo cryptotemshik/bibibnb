@@ -140,6 +140,33 @@ rarities before mint-out. Launch uploads only the pre-reveal assets. When ready:
    (trailing slash required). `BatchMetadataUpdate` is emitted; OpenSea
    refreshes on its own. If an item lags: item page → … → Refresh metadata.
 
+## Signing: browser wallet vs. fast mode
+
+Two ways to sign, chosen with the **wallet | fast ⚡** toggle in the top bar:
+
+- **wallet** (default): your injected wallet (MetaMask/Rabby). Every transaction
+  shows a confirmation pop-up. Nothing sensitive touches the app.
+- **fast ⚡** (local signer): paste **one** private key; transactions then sign
+  automatically with **no pop-up** — the same convenience a deploy script has.
+  The key is held in the browser tab's memory only: never written to
+  localStorage, never sent over the network (viem signs locally and broadcasts
+  the already-signed transaction), and gone the moment you refresh.
+
+Fast mode is a deliberate footgun with rails. It is **single-key by design**
+(no wallet list, no generation, no multi-account — that stays out on purpose).
+The real risk is exposure: anything that can run script in the page — a browser
+extension, a compromised dependency, an XSS bug — can read a key while it's
+loaded. So for real funds:
+
+- Run LaunchPad **locally** (`npm run dev` on your own machine), not the public
+  URL, when a key is loaded.
+- Use a wallet that holds only what the session needs, and remove the key
+  (top bar → **remove key**) when done.
+
+There is no server and no key database anywhere in this project — a backend that
+stored keys would concentrate every wallet behind one breachable door, which is
+strictly worse than one key in one browser tab.
+
 ## Dashboard tab
 
 All your projects in one place. Launches made from this browser register

@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { zeroAddress } from "viem";
-import { CHAIN_ID, OPENSEA_FEE_BPS, SEADROP_ADDRESS, TRANSFER_VALIDATOR } from "../config";
+import { useSigner } from "../signer";
+import { OPENSEA_FEE_BPS, SEADROP_ADDRESS, TRANSFER_VALIDATOR } from "../config";
 import { tokenAbi } from "../contracts/seadrop";
 import {
   fetchCollectionStatus,
@@ -23,10 +24,8 @@ import { TxLink } from "./Bits";
 const ZERO = zeroAddress as string;
 
 export default function StatusTab() {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const { address, txAccount, walletClient, wrongNetwork } = useSigner();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
 
   const saved = useMemo(loadLaunchState, []);
   const [contract, setContract] = useState(saved?.contractAddress ?? "");
@@ -47,8 +46,6 @@ export default function StatusTab() {
   const isOwner = Boolean(
     status && address && status.owner.toLowerCase() === address.toLowerCase(),
   );
-  const wrongNetwork = isConnected && chainId !== CHAIN_ID;
-
   async function load() {
     if (!isAddress(contract)) {
       setError("Enter a valid contract address");
@@ -94,7 +91,7 @@ export default function StatusTab() {
     functionName: "updatePublicDrop" | "setMaxSupply" | "setTransferValidator",
     args: unknown[],
   ) {
-    if (!walletClient || !publicClient || !address) return;
+    if (!walletClient || !publicClient || !address || !txAccount) return;
     setActionBusy(true);
     setActionMsg(null);
     try {
@@ -103,7 +100,7 @@ export default function StatusTab() {
         abi: tokenAbi,
         functionName,
         args,
-        account: address,
+        account: txAccount,
       } as never);
       const hash = await walletClient.writeContract(request as never);
       await publicClient.waitForTransactionReceipt({ hash });

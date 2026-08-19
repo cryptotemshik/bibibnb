@@ -47,9 +47,10 @@ export default function App() {
           {EXPLORER_URL.replace("https://", "")}
         </a>
         <br />
-        Creator tool for launching YOUR collections from YOUR wallet. No private
-        keys, no minting bots, no auto-listing — signing happens only in your
-        wallet extension.
+        Creator tool for launching YOUR collections from YOUR wallet. Single
+        wallet only — no multi-account, no minting bots, no auto-listing.
+        Signing is either your browser wallet or, in fast mode, one private key
+        held in this tab&apos;s memory (never saved, never sent anywhere).
       </div>
     </>
   );

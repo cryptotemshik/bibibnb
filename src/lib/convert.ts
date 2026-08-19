@@ -95,6 +95,20 @@ export function isAddress(input: string): input is `0x${string}` {
 }
 
 /**
+ * Normalize a pasted private key to 0x + 64 lowercase hex. Throws on anything
+ * else. Used only by the in-memory local signer — the key is never persisted
+ * or transmitted.
+ */
+export function normalizePrivateKey(raw: string): `0x${string}` {
+  let s = raw.trim();
+  if (s.startsWith("0x") || s.startsWith("0X")) s = s.slice(2);
+  if (!/^[0-9a-fA-F]{64}$/.test(s)) {
+    throw new Error("Private key must be 64 hex characters (32 bytes), with or without 0x");
+  }
+  return `0x${s.toLowerCase()}` as `0x${string}`;
+}
+
+/**
  * Pull a contract address out of whatever the user pastes: a bare address, an
  * OpenSea collection/item URL, or a Blockscout address URL.
  */

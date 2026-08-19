@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { zeroAddress } from "viem";
+import { useSigner } from "../signer";
 import {
-  CHAIN_ID,
   OPENSEA_FEE_RECIPIENT,
   SEADROP_ADDRESS,
   openSeaItemUrl,
@@ -39,10 +39,8 @@ function phaseOf(t: MintTarget, now: number): DropPhase {
 }
 
 export default function MintTab() {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const { address, txAccount, isConnected, walletClient, wrongNetwork } = useSigner();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
 
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<MintTarget | null>(null);
@@ -59,7 +57,6 @@ export default function MintTab() {
     return () => clearInterval(t);
   }, []);
 
-  const wrongNetwork = isConnected && chainId !== CHAIN_ID;
   const phase = target ? phaseOf(target, now) : null;
 
   async function load() {
@@ -134,7 +131,7 @@ export default function MintTab() {
   }
 
   async function mint() {
-    if (!target || !walletClient || !publicClient || !address) return;
+    if (!target || !walletClient || !publicClient || !address || !txAccount) return;
     setMinting(true);
     setError(null);
     setMintedIds(null);
@@ -150,7 +147,7 @@ export default function MintTab() {
         abi: seaDropAbi,
         functionName: "mintPublic",
         args: [target.address, feeRecipient, zeroAddress, BigInt(quantity)],
-        account: address,
+        account: txAccount,
         value,
       });
       const hash = await walletClient.writeContract(request);

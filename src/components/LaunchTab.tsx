@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { usePublicClient } from "wagmi";
+import { useSigner } from "../signer";
 import { zeroHash } from "viem";
 import {
-  CHAIN_ID,
   DEFAULT_DROP_DAYS,
   OPENSEA_FEE_BPS,
   OPENSEA_FEE_RECIPIENT,
@@ -162,10 +162,8 @@ function deriveAndValidate(
 type Phase = "form" | "confirm" | "running" | "done";
 
 export default function LaunchTab() {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const { address, txAccount, isConnected, walletClient, wrongNetwork } = useSigner();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
 
   const saved = useMemo(loadLaunchState, []);
   const [form, setForm] = useState<LaunchFormValues>(() => ({
@@ -185,7 +183,6 @@ export default function LaunchTab() {
   const [state, setState] = useState<LaunchState | null>(saved);
   const [derived, setDerived] = useState<DerivedParams | null>(null);
 
-  const wrongNetwork = isConnected && chainId !== CHAIN_ID;
   const pendingResume =
     saved && saved.contractAddress && !saved.configureTxHash && !saved.completedAt;
 
@@ -222,12 +219,12 @@ export default function LaunchTab() {
       setPhase("form");
       return;
     }
-    if (!walletClient || !publicClient || !address) {
-      setErrors(["Connect your wallet first"]);
+    if (!walletClient || !publicClient || !address || !txAccount) {
+      setErrors(["Connect a wallet or load a fast-mode key first"]);
       setPhase("form");
       return;
     }
-    if (chainId !== CHAIN_ID) {
+    if (wrongNetwork) {
       setErrors(["Switch to Robinhood Chain first (button in the top bar)"]);
       setPhase("form");
       return;
@@ -348,7 +345,7 @@ export default function LaunchTab() {
           abi: erc721SeaDropAbi,
           bytecode: erc721SeaDropBytecode,
           args: [form.name, form.symbol, [SEADROP_ADDRESS]],
-          account: address,
+          account: txAccount,
           chain: robinhoodChain,
         });
         st = updateLaunchState({ deployTxHash: hash });
@@ -408,7 +405,7 @@ export default function LaunchTab() {
           abi: erc721SeaDropAbi,
           functionName: "multiConfigure",
           args: [config],
-          account: address,
+          account: txAccount,
         });
         const hash = await walletClient.writeContract(request);
         updateStep("configure", { detail: "waiting for confirmation…" });
@@ -433,7 +430,7 @@ export default function LaunchTab() {
             abi: tokenAbi,
             functionName: "setRoyaltyInfo",
             args: [{ royaltyAddress: params.payout, royaltyBps: BigInt(params.royaltyBps) }],
-            account: address,
+            account: txAccount,
             chain: robinhoodChain,
           });
           updateStep("royalty", { detail: "waiting for confirmation…" });
@@ -459,7 +456,7 @@ export default function LaunchTab() {
             abi: tokenAbi,
             functionName: "setTransferValidator",
             args: [TRANSFER_VALIDATOR],
-            account: address,
+            account: txAccount,
           });
           const hash = await walletClient.writeContract(request);
           updateStep("validator", { detail: "waiting for confirmation…" });
