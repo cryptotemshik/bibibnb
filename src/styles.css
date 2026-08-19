@@ -1005,3 +1005,189 @@ tr.project-detail td {
     background: rgba(2, 8, 4, 0.65);
   }
 }
+
+/* ── Live feed / wallet tracker ──────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 14px 16px;
+}
+.stat-num {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--green-bright);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.stat-label {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.feed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  animation: feed-in 0.35s ease;
+}
+.feed-row:last-child {
+  border-bottom: none;
+}
+.feed-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.015);
+}
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.feed-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feed-main a {
+  color: var(--text);
+  border-bottom: 1px solid var(--line-strong);
+}
+.feed-main a:hover {
+  color: var(--green-bright);
+}
+.feed-meta {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.qty {
+  font-family: var(--mono);
+  color: var(--green-bright);
+}
+
+.ev-pill {
+  flex-shrink: 0;
+  width: 58px;
+  text-align: center;
+  border-radius: 999px;
+  padding: 3px 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  color: var(--dim);
+}
+.ev-mint {
+  color: var(--green-bright);
+  border-color: rgba(0, 200, 5, 0.4);
+  background: rgba(0, 200, 5, 0.1);
+}
+.ev-buy {
+  color: #7fd0ff;
+  border-color: rgba(90, 175, 255, 0.4);
+  background: rgba(90, 175, 255, 0.1);
+}
+.ev-sell {
+  color: var(--warn);
+  border-color: rgba(255, 206, 74, 0.4);
+  background: rgba(255, 206, 74, 0.1);
+}
+.ev-recv,
+.ev-send {
+  color: var(--dim);
+  background: var(--surface-2);
+}
+
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 6px 5px 12px;
+  background: var(--surface-2);
+  font-size: 12px;
+  font-family: var(--mono);
+  max-width: 100%;
+}
+.wallet-chip b {
+  font-family: var(--sans);
+  color: var(--text);
+}
+.wallet-chip a {
+  color: var(--dim);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-x {
+  all: unset;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--faint);
+  font-size: 14px;
+  line-height: 1;
+}
+.chip-x:hover {
+  color: var(--err);
+  background: rgba(255, 92, 87, 0.12);
+}
+
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .stat-num {
+    font-size: 22px;
+  }
+  .feed-row {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .feed-meta {
+    width: 100%;
+    order: 3;
+  }
+  .wallet-chip a {
+    max-width: 96px;
+  }
+}

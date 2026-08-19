@@ -3,6 +3,7 @@ import {
   datetimeLocalToUnix,
   ethToWei,
   formatCountdown,
+  timeAgo,
   isAddress,
   normalizePrivateKey,
   normalizeProvenanceHash,
@@ -103,5 +104,19 @@ describe("isAddress", () => {
   it("rejects everything else", () => {
     expect(isAddress("0x123")).toBe(false);
     expect(isAddress("00005EA00Ac477B1030CE78506496e8C2dE24bf5")).toBe(false);
+  });
+});
+
+describe("timeAgo", () => {
+  const now = 1_000_000_000_000; // fixed "now" in ms
+  const at = (secsAgo: number) => Math.floor(now / 1000) - secsAgo;
+  it("renders compact buckets", () => {
+    expect(timeAgo(at(2), now)).toBe("just now");
+    expect(timeAgo(at(30), now)).toBe("30s");
+    expect(timeAgo(at(90), now)).toBe("1m");
+    expect(timeAgo(at(3 * 3600), now)).toBe("3h");
+    expect(timeAgo(at(2 * 86400), now)).toBe("2d");
+    expect(timeAgo(at(3 * 7 * 86400), now)).toBe("3w");
+    expect(timeAgo(at(90 * 86400), now)).toBe("3mo");
   });
 });

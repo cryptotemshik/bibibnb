@@ -217,6 +217,47 @@ There is no server and no key database anywhere in this project — a backend th
 stored keys would concentrate every wallet behind one breachable door, which is
 strictly worse than one key in one browser tab.
 
+## Live mints tab (MintGo-style)
+
+What's minting **right now**, read live from the chain's Blockscout API — no
+backend. It reads the newest `SeaDropMint` logs emitted by the canonical
+SeaDrop contract, decodes them (collection, minter, quantity, unit price), and
+shows:
+
+- **Header stats** over the recent window: NFTs minted, mint txns, unique
+  minters, distinct collections.
+- **Trending — most minted**: collections ranked by NFTs minted (then unique
+  minters), with a rough secondary of mint volume and how long ago the last
+  mint landed. Collection names are resolved on-chain via `name()` and cached.
+- **Latest mints**: a live ticker of individual mints (who minted how many of
+  what, unit price, time-ago, tx link), auto-refreshing every 20s.
+
+Only mints that go through SeaDrop are visible here (that's what LaunchPad and
+OpenSea drops use). It needs a **Blockscout API** for the active chain, so it's
+enabled on Robinhood, Base, Optimism, Zora, Soneium, Unichain, Shape, B3, and
+Flow, and shows a "switch chain" note elsewhere.
+
+## Wallets tracker tab
+
+Watch any set of wallets and get alerted when they **mint**, **buy**, or
+**sell** an NFT. **Addresses only — never keys.**
+
+- **Bulk add**: paste one address per line (or comma/space separated), with an
+  optional label on the same line (`0xabc… whale`). The list is validated,
+  deduped, and stored locally.
+- Each wallet's recent ERC-721/1155 transfers are read from Blockscout and
+  classified relative to the wallet: `mint` (from `0x0`), `buy`/`sell` (a
+  Seaport order fill — matched by method name or raw 4-byte selector), or plain
+  `receive`/`send`. Poll runs every 30s.
+- **Browser notifications** (opt-in) fire for new events while the tab is open;
+  the first (baseline) batch is silenced so you only hear about genuinely new
+  activity.
+
+Honest limit: a static site can only notify while the tab is open. Closed-tab /
+background push needs a server with Web Push (a Service Worker + VAPID key +
+subscription store), which this keyless app deliberately doesn't run. Like the
+Live tab, activity reads need a Blockscout API for the active chain.
+
 ## Dashboard tab
 
 All your projects in one place. Launches made from this browser register

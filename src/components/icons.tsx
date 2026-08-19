@@ -56,3 +56,18 @@ export const ArrowRight = (p: SVGProps<SVGSVGElement>) => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </svg>
 );
+
+export const WalletIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M3 7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1" />
+    <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H5" />
+    <circle cx="16.5" cy="13" r="1.2" />
+  </svg>
+);
+
+export const TrendingIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M3 17l6-6 4 4 8-8" />
+    <path d="M17 7h4v4" />
+  </svg>
+);

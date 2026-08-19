@@ -66,6 +66,22 @@ export function nowPlusMinutesLocalInput(minutes: number): string {
   )}:${pad(d.getMinutes())}`;
 }
 
+/** Compact "just now / 5m / 3h / 2d" from a unix-seconds timestamp. */
+export function timeAgo(unixSeconds: number, now = Date.now()): string {
+  const secs = Math.floor(now / 1000) - unixSeconds;
+  if (secs < 5) return "just now";
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w`;
+  return `${Math.floor(days / 30)}mo`;
+}
+
 export function formatCountdown(secondsLeft: number): string {
   if (secondsLeft <= 0) return "live now";
   const days = Math.floor(secondsLeft / 86_400);

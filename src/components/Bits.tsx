@@ -13,16 +13,16 @@ function useLinkChain() {
   return useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
 }
 
-export function TxLink({ hash }: { hash: string }) {
+export function TxLink({ hash, label }: { hash: string; label?: string }) {
   const info = useLinkChain();
   return (
     <a
-      className="mono-break"
+      className={label ? undefined : "mono-break"}
       href={explorerTxUrl(info, hash)}
       target="_blank"
       rel="noreferrer"
     >
-      {hash}
+      {label ?? hash}
     </a>
   );
 }

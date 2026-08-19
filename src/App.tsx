@@ -3,9 +3,11 @@ import Landing from "./components/Landing";
 import ConnectBar from "./components/ConnectBar";
 import DashboardTab from "./components/DashboardTab";
 import LaunchTab from "./components/LaunchTab";
+import LiveTab from "./components/LiveTab";
 import MintTab from "./components/MintTab";
 import RevealTab from "./components/RevealTab";
 import StatusTab from "./components/StatusTab";
+import WalletsTab from "./components/WalletsTab";
 import { useActiveChain } from "./signer";
 import { CHAINS_BY_ID, DEFAULT_CHAIN_ID } from "./chains";
 import {
@@ -14,14 +16,25 @@ import {
   GridIcon,
   PulseIcon,
   RocketIcon,
+  TrendingIcon,
+  WalletIcon,
 } from "./components/icons";
 
-type Tab = "dashboard" | "launch" | "reveal" | "status" | "mint";
+type Tab =
+  | "dashboard"
+  | "launch"
+  | "reveal"
+  | "status"
+  | "live"
+  | "wallets"
+  | "mint";
 
 const TAB_ICON = {
   launch: RocketIcon,
   reveal: EyeIcon,
   status: PulseIcon,
+  live: TrendingIcon,
+  wallets: WalletIcon,
   dashboard: GridIcon,
   mint: BoltIcon,
 } as const;
@@ -48,7 +61,7 @@ export default function App() {
     <div className="app-enter">
       <ConnectBar />
       <div className="tabs">
-        {(["launch", "reveal", "status", "dashboard"] as const).map((t) => {
+        {(["launch", "reveal", "status", "live", "wallets", "dashboard"] as const).map((t) => {
           const Icon = TAB_ICON[t];
           return (
             <button
@@ -73,6 +86,8 @@ export default function App() {
       {tab === "launch" ? <LaunchTab /> : null}
       {tab === "reveal" ? <RevealTab /> : null}
       {tab === "status" ? <StatusTab /> : null}
+      {tab === "live" ? <LiveTab /> : null}
+      {tab === "wallets" ? <WalletsTab /> : null}
       {tab === "mint" ? <MintTab /> : null}
       <div className="footer">
         {info.label} · explorer:{" "}
