@@ -36,6 +36,17 @@ import {
 import { AddrLink, IpfsLink, Steps, TxLink, type StepView } from "./Bits";
 import SuccessPanel from "./SuccessPanel";
 
+/** OpenSea's collection categories. Category lives in OpenSea's own settings;
+ *  writing it into contractURI is a best-effort hint for indexers. */
+const CATEGORIES = [
+  "PFPs",
+  "Art",
+  "Gaming",
+  "Memberships",
+  "Photography",
+  "Music",
+] as const;
+
 /** Pre-reveal copy every token shares until the reveal — editable defaults. */
 const DEFAULT_PREREVEAL_DESCRIPTION =
   "Not revealed yet. Every token in this collection shares this placeholder " +
@@ -52,6 +63,7 @@ const EMPTY_FORM: LaunchFormValues = {
   symbol: "",
   description: "",
   websiteUrl: "",
+  category: "PFPs",
   prerevealName: "",
   prerevealDescription: DEFAULT_PREREVEAL_DESCRIPTION,
   supply: 0,
@@ -267,6 +279,9 @@ export default function LaunchTab() {
         ...(c.mintPriceEth ? { mintPriceEth: c.mintPriceEth } : {}),
         ...(c.perWalletLimit > 0 ? { perWalletLimit: c.perWalletLimit } : {}),
         ...(c.royaltyPercent ? { royaltyPercent: c.royaltyPercent } : {}),
+        ...(CATEGORIES.includes(c.category as (typeof CATEGORIES)[number])
+          ? { category: c.category }
+          : {}),
       });
       setImportNotes(c.notes);
     } catch (e) {
@@ -450,6 +465,7 @@ export default function LaunchTab() {
             // Collection logo on OpenSea — its own picture when one was
             // uploaded, else the pre-reveal art.
             image: `ipfs://${st.collectionImageCid ?? st.prerevealImageCid}`,
+            ...(form.category ? { category: form.category } : {}),
             ...(form.websiteUrl.trim()
               ? { external_link: form.websiteUrl.trim() }
               : {}),
@@ -779,6 +795,24 @@ export default function LaunchTab() {
               value={form.description}
               onChange={(e) => set({ description: e.target.value })}
             />
+          </div>
+          <div className="field">
+            <label>category</label>
+            <select
+              value={form.category}
+              onChange={(e) => set({ category: e.target.value })}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="hint">
+              written into the collection metadata as a hint. OpenSea&apos;s own
+              category is set on opensea.io → your collection → Edit — it
+              isn&apos;t a contract field, so confirm it there after indexing.
+            </span>
           </div>
           <div className="field wide">
             <label>website (optional — shows on OpenSea as the collection link)</label>
@@ -1178,6 +1212,8 @@ export default function LaunchTab() {
                     }`
                   : "none (can set later in OpenSea collection settings)"}
               </dd>
+              <dt>category</dt>
+              <dd>{form.category}</dd>
               <dt>unrevealed name</dt>
               <dd>
                 {form.prerevealName.trim() || defaultPrerevealName(form.name)}

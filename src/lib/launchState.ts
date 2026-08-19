@@ -13,6 +13,8 @@ export interface LaunchFormValues {
   description: string;
   /** Optional collection website → contractURI external_link on OpenSea. */
   websiteUrl: string;
+  /** OpenSea collection category, e.g. "PFPs". Written into contractURI. */
+  category: string;
   /** Item name shown before reveal. Empty → "<collection> (unrevealed)". */
   prerevealName: string;
   /** Item description shown before reveal. Empty → the collection description. */

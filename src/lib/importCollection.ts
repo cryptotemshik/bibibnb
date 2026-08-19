@@ -22,6 +22,8 @@ export interface ImportedCollection {
   mintPriceEth: string;
   perWalletLimit: number;
   royaltyPercent: string;
+  /** Category from the source contractURI, if it carried one. */
+  category: string;
   /** Resolved http(s) URL of the collection image, if the metadata had one. */
   imageUrl?: string;
   /** Human-readable notes about what could and couldn't be copied. */
@@ -157,6 +159,7 @@ export async function importCollection(
     mintPriceEth,
     perWalletLimit,
     royaltyPercent,
+    category: meta ? str(meta.category) : "",
     imageUrl,
     notes,
   };

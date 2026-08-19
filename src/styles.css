@@ -1263,3 +1263,22 @@ tr.project-detail td {
     max-width: 96px;
   }
 }
+
+/* Outbound-link click tallies. */
+.click-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.click-stat {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 11px;
+  background: var(--surface-2);
+  font-size: 12px;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.click-stat b {
+  color: var(--green-bright);
+}

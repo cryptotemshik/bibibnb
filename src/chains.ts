@@ -36,7 +36,17 @@ export interface ChainInfo {
   explorerUrl: string;
   /** Blockscout v2 API base — enables full profit (royalties, USD). */
   blockscoutApi?: string;
+  /**
+   * Canonical WETH, where verified on-chain. Secondary sales on OpenSea settle
+   * in WETH (offers always do), so this is what a seller approves to Seaport.
+   * Set only where the address was checked — a wrong token address here would
+   * send an approval to a scam contract.
+   */
+  weth?: `0x${string}`;
 }
+
+/** OP-stack predeploy WETH — same address on every OP-stack chain (verified). */
+const OP_WETH = "0x4200000000000000000000000000000000000006" as const;
 
 function make(params: {
   id: number;
@@ -49,6 +59,7 @@ function make(params: {
   hasValidator?: boolean;
   blockscoutApi?: string;
   currencyName?: string;
+  weth?: `0x${string}`;
 }): ChainInfo {
   const chain = defineChain({
     id: params.id,
@@ -75,6 +86,7 @@ function make(params: {
     transferValidator: params.hasValidator === false ? undefined : TRANSFER_VALIDATOR,
     explorerUrl: params.explorerUrl,
     blockscoutApi: params.blockscoutApi,
+    weth: params.weth,
   };
 }
 
@@ -88,6 +100,8 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Blockscout",
     openSeaSlug: "robinhood",
     blockscoutApi: "https://robinhoodchain.blockscout.com/api/v2",
+    // Verified: TransparentUpgradeableProxy → aeWETH, 425k holders, Seaport settles in it.
+    weth: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
   }),
   make({
     id: 1,
@@ -97,6 +111,7 @@ export const CHAINS: ChainInfo[] = [
     explorerUrl: "https://etherscan.io",
     explorerName: "Etherscan",
     openSeaSlug: "ethereum",
+    weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
   }),
   make({
     id: 8453,
@@ -107,6 +122,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Basescan",
     openSeaSlug: "base",
     blockscoutApi: "https://base.blockscout.com/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 42161,
@@ -135,6 +151,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Etherscan",
     openSeaSlug: "optimism",
     blockscoutApi: "https://optimism.blockscout.com/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 137,
@@ -155,6 +172,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Blockscout",
     openSeaSlug: "zora",
     blockscoutApi: "https://explorer.zora.energy/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 81457,
@@ -194,6 +212,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Blockscout",
     openSeaSlug: "b3",
     blockscoutApi: "https://explorer.b3.fun/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 2020,
@@ -224,6 +243,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Blockscout",
     openSeaSlug: "shape",
     blockscoutApi: "https://shapescan.xyz/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 1868,
@@ -234,6 +254,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Blockscout",
     openSeaSlug: "soneium",
     blockscoutApi: "https://soneium.blockscout.com/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 130,
@@ -244,6 +265,7 @@ export const CHAINS: ChainInfo[] = [
     explorerName: "Uniscan",
     openSeaSlug: "unichain",
     blockscoutApi: "https://unichain.blockscout.com/api/v2",
+    weth: OP_WETH,
   }),
   make({
     id: 2741,

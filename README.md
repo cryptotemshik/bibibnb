@@ -217,6 +217,47 @@ There is no server and no key database anywhere in this project — a backend th
 stored keys would concentrate every wallet behind one breachable door, which is
 strictly worse than one key in one browser tab.
 
+## Secondary-market currency (ETH/WETH vs USDG)
+
+Three separate things, often confused:
+
+1. **Mint currency is always native ETH.** SeaDrop takes payment as
+   `msg.value`, so no stablecoin can be the mint currency — this is fixed by
+   the canonical contract, not a setting.
+2. **Secondary sales settle in whatever the seller picks per listing**, and
+   **every OpenSea offer/bid is paid in WETH**.
+3. **The currency OpenSea *defaults to* in its UI** (USDG on some chains) is
+   OpenSea's own per-chain configuration. No field on the NFT contract controls
+   it, so nothing in LaunchPad — or any contract call — can change that default.
+   Pick ETH/WETH in the listing form, and set accepted tokens under OpenSea →
+   collection → Edit where that chain exposes the option.
+
+What LaunchPad *can* do is the useful part: the Status tab's **Secondary
+market** panel shows the chain's canonical WETH and approves it to Seaport in
+one tx, so accepting a WETH offer later is a single signature instead of two.
+WETH addresses are only listed where verified on-chain (Robinhood Chain's is a
+verified `aeWETH` proxy with 425k holders that Seaport demonstrably settles in);
+on chains without a verified address the helper hides itself rather than risk
+pointing at a lookalike token.
+
+## Collection category
+
+The Launch form has a **category** picker defaulting to **PFPs**, written into
+the collection metadata as a hint. OpenSea's own category lives in its
+settings, not the contract — confirm it on opensea.io → collection → Edit once
+the collection is indexed.
+
+## Link click tracking
+
+The collection detail (Status / Dashboard) shows click tallies for the
+collection's **X/Twitter**, **website** and **OpenSea** links.
+
+Scope, stated plainly: these count clicks **made through LaunchPad, in that
+browser**, stored locally. A static site has no server, so it cannot see clicks
+on the same link as it appears on opensea.io or anywhere else. To count every
+visitor, put a tracked short link (Bitly, Dub, …) in the collection's website/X
+field and read the numbers there.
+
 ## Pinata key — which one
 
 Pinata's "API Key Information" dialog shows three values. LaunchPad needs the

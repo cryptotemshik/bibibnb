@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { xShareUrl } from "../config";
 import {
   CHAINS_BY_ID,
@@ -7,13 +8,14 @@ import {
 } from "../chains";
 import { useActiveChain } from "../signer";
 import type { CollectionStatus } from "../lib/collectionData";
-import { unixToLocalAndUtc, weiToEth } from "../lib/convert";
+import { timeAgo, unixToLocalAndUtc, weiToEth } from "../lib/convert";
+import { getAllClicks, LINK_LABEL } from "../lib/linkStats";
 import {
   formatEthShort,
   formatUsdApprox,
   type ProfitBreakdown,
 } from "../lib/profit";
-import { AddrLink, CopyButton, IpfsLink, OpenSeaLink } from "./Bits";
+import { AddrLink, CopyButton, IpfsLink, OpenSeaLink, TrackedLink } from "./Bits";
 
 export interface ProfitView {
   loading: boolean;
@@ -36,6 +38,9 @@ export function CollectionDetail({
   const info: ChainInfo =
     useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
   const pd = status.publicDrop;
+  // Bumped on each tracked click so the tallies below re-read from storage.
+  const [clickTick, setClickTick] = useState(0);
+  const bumpClicks = () => setClickTick((n) => n + 1);
   const revealed = status.baseURI.endsWith("/");
   const enforced =
     info.transferValidator !== undefined &&
@@ -117,6 +122,7 @@ export function CollectionDetail({
         <OpenSeaLink
           address={contract}
           fallback={openSeaCollectionUrl(info, contract)}
+          onCounted={bumpClicks}
         />{" "}
         ·{" "}
         <span className="addr-row">
@@ -124,13 +130,17 @@ export function CollectionDetail({
           <CopyButton text={contract} />
         </span>{" "}
         ·{" "}
-        <a
-          href={xShareUrl(`${status.name} — live on OpenSea.`, openSeaCollectionUrl(info, contract))}
-          target="_blank"
-          rel="noreferrer"
+        <TrackedLink
+          contract={contract}
+          kind="twitter"
+          href={xShareUrl(
+            `${status.name} — live on OpenSea.`,
+            openSeaCollectionUrl(info, contract),
+          )}
+          onCounted={bumpClicks}
         >
           share on X
-        </a>
+        </TrackedLink>
         {isOwner ? (
           <div className="dim">
             connect X (Twitter): OpenSea → collection → Edit → Links → Connect
@@ -138,7 +148,48 @@ export function CollectionDetail({
           </div>
         ) : null}
       </dd>
+      <dt>link clicks</dt>
+      <dd>
+        <LinkClicks contract={contract} tick={clickTick} />
+      </dd>
     </dl>
+  );
+}
+
+/**
+ * Click tallies for the collection's outbound links. Honest about scope: these
+ * are clicks made through LaunchPad in this browser — opensea.io can't report
+ * its own link clicks to a static site.
+ */
+function LinkClicks({ contract, tick }: { contract: string; tick: number }) {
+  const rows = useMemo(
+    () => getAllClicks(contract),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contract, tick],
+  );
+  const total = rows.reduce((n, r) => n + r.record.count, 0);
+
+  return (
+    <div>
+      <div className="click-row">
+        {rows.map(({ kind, record }) => (
+          <span key={kind} className="click-stat">
+            <b>{record.count}</b> {LINK_LABEL[kind]}
+            {record.lastAt ? (
+              <span className="dim"> · {timeAgo(Math.floor(record.lastAt / 1000))}</span>
+            ) : null}
+          </span>
+        ))}
+      </div>
+      <div className="dim" style={{ fontSize: 11, marginTop: 4 }}>
+        {total === 0
+          ? "No clicks counted yet — these count clicks on the links above, made in this browser."
+          : "Counts clicks on the links above, made through LaunchPad in this browser."}{" "}
+        Clicks that happen on opensea.io can&apos;t reach a static site; to count
+        every visitor, put a tracked short link (Bitly, Dub, etc.) in the
+        collection&apos;s website/X field and read the numbers there.
+      </div>
+    </div>
   );
 }
 

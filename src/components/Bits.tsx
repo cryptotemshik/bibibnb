@@ -8,6 +8,7 @@ import {
 } from "../chains";
 import { useActiveChain } from "../signer";
 import { collectionOpenSeaUrl, setOpenSeaUrl } from "../lib/projects";
+import { recordClick, type LinkKind } from "../lib/linkStats";
 import { CheckIcon, CopyIcon } from "./icons";
 
 /**
@@ -102,10 +103,12 @@ export function OpenSeaLink({
   address,
   fallback,
   label = "OpenSea",
+  onCounted,
 }: {
   address: string;
   fallback: string;
   label?: string;
+  onCounted?: () => void;
 }) {
   const [url, setUrl] = useState(() => collectionOpenSeaUrl(address, fallback));
   const [draft, setDraft] = useState("");
@@ -143,7 +146,15 @@ export function OpenSeaLink({
 
   return (
     <span className="addr-row">
-      <a href={url} target="_blank" rel="noreferrer">
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={() => {
+          recordClick(address, "opensea");
+          onCounted?.();
+        }}
+      >
         {label}
       </a>
       <CopyButton text={url} title="copy OpenSea link" />
@@ -159,6 +170,38 @@ export function OpenSeaLink({
         edit
       </button>
     </span>
+  );
+}
+
+/**
+ * An outbound link that bumps this collection's click counter before opening.
+ * Counts clicks made here, in this browser — see lib/linkStats for the limits.
+ */
+export function TrackedLink({
+  contract,
+  kind,
+  href,
+  children,
+  onCounted,
+}: {
+  contract: string;
+  kind: LinkKind;
+  href: string;
+  children: ReactNode;
+  onCounted?: () => void;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      onClick={() => {
+        recordClick(contract, kind);
+        onCounted?.();
+      }}
+    >
+      {children}
+    </a>
   );
 }
 

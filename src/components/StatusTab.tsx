@@ -18,6 +18,7 @@ import {
 import { loadLaunchState } from "../lib/launchState";
 import { upsertProject } from "../lib/projects";
 import { CollectionDetail, ProfitBlock, type ProfitView } from "./CollectionDetail";
+import SecondaryMarketPanel from "./SecondaryMarketPanel";
 import { TxLink } from "./Bits";
 
 const ZERO = zeroAddress as string;
@@ -305,6 +306,8 @@ export default function StatusTab() {
           ) : null}
         </>
       ) : null}
+
+      <SecondaryMarketPanel />
     </div>
   );
 }
