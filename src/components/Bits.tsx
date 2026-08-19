@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   CHAINS_BY_ID,
   DEFAULT_CHAIN_ID,
@@ -7,6 +7,57 @@ import {
   ipfsGatewayUrl,
 } from "../chains";
 import { useActiveChain } from "../signer";
+import { CheckIcon, CopyIcon } from "./icons";
+
+/**
+ * Copy-to-clipboard button — copies `text` and briefly flips to a check.
+ * Used to grab a collection's contract address without leaving the app.
+ */
+export function CopyButton({
+  text,
+  title = "copy contract address",
+}: {
+  text: string;
+  title?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for insecure contexts / older browsers.
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        /* give up silently */
+      }
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <button
+      type="button"
+      className={`copy-btn ${copied ? "copied" : ""}`}
+      onClick={copy}
+      title={title}
+      aria-label={title}
+    >
+      {copied ? <CheckIcon width={14} height={14} /> : <CopyIcon width={14} height={14} />}
+    </button>
+  );
+}
 
 /** Active chain, falling back to the default so links still resolve. */
 function useLinkChain() {

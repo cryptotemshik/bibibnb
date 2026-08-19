@@ -13,7 +13,7 @@ import {
   type MintEvent,
 } from "../lib/mintfeed";
 import { shortAddress } from "./ConnectBar";
-import { TxLink } from "./Bits";
+import { CopyButton, TxLink } from "./Bits";
 import { TrendingIcon } from "./icons";
 
 const POLL_MS = 5_000;
@@ -165,13 +165,16 @@ export default function LiveTab() {
                   <tr key={r.collection}>
                     <td className="dim">{i + 1}</td>
                     <td>
-                      <a
-                        href={openSeaCollectionUrl(chainInfo!, r.collection)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {nameOf(r.collection)}
-                      </a>
+                      <span className="coll-cell">
+                        <a
+                          href={openSeaCollectionUrl(chainInfo!, r.collection)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {nameOf(r.collection)}
+                        </a>
+                        <CopyButton text={r.collection} />
+                      </span>
                     </td>
                     <td>
                       <b>{r.quantity.toLocaleString()}</b>
@@ -220,6 +223,7 @@ export default function LiveTab() {
                   )}
                 </span>
                 <span className="feed-meta dim">
+                  <CopyButton text={e.collection} title="copy collection contract" />
                   {timeAgo(e.t)} · <TxLink hash={e.txHash} label="tx" />
                 </span>
               </li>
