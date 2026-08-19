@@ -16,8 +16,9 @@ import { AddrLink, IpfsLink, Steps, TxLink, type StepView } from "./Bits";
 type Phase = "form" | "running" | "done";
 
 export default function RevealTab() {
-  const { address, txAccount, isConnected, walletClient, wrongNetwork } = useSigner();
-  const publicClient = usePublicClient();
+  const { address, txAccount, isConnected, walletClient, wrongNetwork, chainInfo } =
+    useSigner();
+  const publicClient = usePublicClient({ chainId: chainInfo?.id });
 
   const saved = useMemo(loadLaunchState, []);
   const [contract, setContract] = useState(saved?.contractAddress ?? "");

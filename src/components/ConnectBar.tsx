@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
-import { CHAIN_ID } from "../config";
-import { useSignerControls } from "../signer";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { CHAINS } from "../chains";
+import { useChainSwitcher, useSigner, useSignerControls } from "../signer";
 
 export function shortAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -9,11 +9,10 @@ export function shortAddress(addr: string): string {
 
 export default function ConnectBar() {
   const { address, isConnected } = useAccount();
-  const chainId = useChainId();
   const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
-  const { switchChain, isPending: switching } = useSwitchChain();
-  const wrongNetwork = isConnected && chainId !== CHAIN_ID;
+  const { chainInfo, wrongNetwork } = useSigner();
+  const { select, switching, activeId } = useChainSwitcher();
 
   const { mode, setMode, local, setLocalKey, clearLocal } = useSignerControls();
   const [keyInput, setKeyInput] = useState("");
@@ -34,7 +33,7 @@ export default function ConnectBar() {
     <div>
       <div className="topbar">
         <h1>
-          LAUNCHPAD<span className="dim">@robinhood-chain</span>
+          LAUNCHPAD<span className="dim">@opensea-evm</span>
           <span className="cursor">▌</span>
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -53,6 +52,25 @@ export default function ConnectBar() {
             </button>
           </div>
 
+          {/* Network selector — works in both modes. */}
+          <select
+            className={`net-select ${wrongNetwork ? "bad" : ""}`}
+            value={CHAINS.some((c) => c.id === activeId) ? activeId : ""}
+            disabled={switching || (mode === "wallet" && !isConnected)}
+            onChange={(e) => select(Number(e.target.value))}
+          >
+            {!CHAINS.some((c) => c.id === activeId) ? (
+              <option value="">
+                {wrongNetwork ? "unsupported — pick a network" : "select network"}
+              </option>
+            ) : null}
+            {CHAINS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+
           {mode === "wallet" ? (
             !isConnected ? (
               <>
@@ -67,16 +85,10 @@ export default function ConnectBar() {
               </>
             ) : (
               <>
-                {wrongNetwork ? (
-                  <button
-                    className="danger"
-                    disabled={switching}
-                    onClick={() => switchChain({ chainId: CHAIN_ID })}
-                  >
-                    {switching ? "switching…" : "wrong network — switch to Robinhood Chain"}
-                  </button>
+                {chainInfo ? (
+                  <span className="pill ok">{chainInfo.label}</span>
                 ) : (
-                  <span className="pill ok">robinhood-chain:4663</span>
+                  <span className="pill bad">wrong network</span>
                 )}
                 <span className="pill">{shortAddress(address!)}</span>
                 <button className="secondary" onClick={() => disconnect()}>

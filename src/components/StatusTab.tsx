@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactNode } from "react";
 import { usePublicClient } from "wagmi";
 import { zeroAddress } from "viem";
 import { useSigner } from "../signer";
-import { OPENSEA_FEE_BPS, SEADROP_ADDRESS, TRANSFER_VALIDATOR } from "../config";
 import { tokenAbi } from "../contracts/seadrop";
 import {
   fetchCollectionStatus,
@@ -24,8 +23,8 @@ import { TxLink } from "./Bits";
 const ZERO = zeroAddress as string;
 
 export default function StatusTab() {
-  const { address, txAccount, walletClient, wrongNetwork } = useSigner();
-  const publicClient = usePublicClient();
+  const { address, txAccount, walletClient, wrongNetwork, chainInfo } = useSigner();
+  const publicClient = usePublicClient({ chainId: chainInfo?.id });
 
   const saved = useMemo(loadLaunchState, []);
   const [contract, setContract] = useState(saved?.contractAddress ?? "");
@@ -51,14 +50,17 @@ export default function StatusTab() {
       setError("Enter a valid contract address");
       return;
     }
-    if (!publicClient) return;
+    if (!publicClient || !chainInfo) {
+      setError("Select a supported network first");
+      return;
+    }
     setLoading(true);
     setError(null);
     setStatus(null);
     setProfit(null);
     try {
       const target = contract as `0x${string}`;
-      const s = await fetchCollectionStatus(publicClient, target);
+      const s = await fetchCollectionStatus(publicClient, target, chainInfo);
       setStatus(s);
       setNewPrice(weiToEth(s.publicDrop.mintPrice));
       setNewLimit(String(s.publicDrop.maxTotalMintableByWallet));
@@ -67,7 +69,7 @@ export default function StatusTab() {
       setNewMaxSupply("");
       setProfit({ loading: true, ethUsd: null });
       try {
-        const p = await fetchProfitData(publicClient, target, s);
+        const p = await fetchProfitData(publicClient, target, s, chainInfo);
         setProfit({ loading: false, ethUsd: p.ethUsd, breakdown: p.breakdown });
       } catch (e) {
         setProfit({
@@ -130,14 +132,15 @@ export default function StatusTab() {
         throw new Error(`Per-wallet limit must be 1..${UINT16_MAX}`);
       }
       if (endTime <= startTime) throw new Error("End time must be after start time");
+      if (!chainInfo) throw new Error("Select a supported network first");
       await ownerTx("updatePublicDrop", [
-        SEADROP_ADDRESS,
+        chainInfo.seaDrop,
         {
           mintPrice,
           startTime,
           endTime,
           maxTotalMintableByWallet: limit,
-          feeBps: status.publicDrop.feeBps || OPENSEA_FEE_BPS,
+          feeBps: status.publicDrop.feeBps || chainInfo.feeBps,
           restrictFeeRecipients: true,
         },
       ]);
@@ -254,15 +257,23 @@ export default function StatusTab() {
                 </button>
                 <button
                   className="secondary"
-                  disabled={actionBusy || wrongNetwork}
+                  disabled={
+                    actionBusy ||
+                    wrongNetwork ||
+                    (status.transferValidator === ZERO && !chainInfo?.transferValidator)
+                  }
                   onClick={() =>
                     ownerTx("setTransferValidator", [
-                      status.transferValidator === ZERO ? TRANSFER_VALIDATOR : zeroAddress,
+                      status.transferValidator === ZERO
+                        ? chainInfo!.transferValidator!
+                        : zeroAddress,
                     ])
                   }
                 >
                   {status.transferValidator === ZERO
-                    ? "enforce royalties (set OpenSea validator)"
+                    ? chainInfo?.transferValidator
+                      ? "enforce royalties (set OpenSea validator)"
+                      : "enforcement unavailable on this chain"
                     : "disable enforcement (validator → 0x0)"}
                 </button>
               </p>

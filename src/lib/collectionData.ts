@@ -3,7 +3,7 @@
  * Used by the Status tab and the Dashboard.
  */
 import { parseAbiItem, zeroAddress, type PublicClient } from "viem";
-import { BLOCKSCOUT_API, SEADROP_ADDRESS, SEAPORT_1_6 } from "../config";
+import type { ChainInfo } from "../chains";
 import { seaDropAbi, tokenAbi } from "../contracts/seadrop";
 import { loadLaunchState } from "./launchState";
 import {
@@ -57,7 +57,9 @@ export const seaDropMintEvent = parseAbiItem(
 export async function fetchCollectionStatus(
   publicClient: PublicClient,
   target: `0x${string}`,
+  info: ChainInfo,
 ): Promise<CollectionStatus> {
+  const seaDrop = info.seaDrop;
   const read = <T,>(functionName: string): Promise<T> =>
     publicClient.readContract({
       address: target,
@@ -88,19 +90,19 @@ export async function fetchCollectionStatus(
   })) as string;
   const [publicDrop, creatorPayout, allowedFeeRecipients] = await Promise.all([
     publicClient.readContract({
-      address: SEADROP_ADDRESS,
+      address: seaDrop,
       abi: seaDropAbi,
       functionName: "getPublicDrop",
       args: [target],
     }),
     publicClient.readContract({
-      address: SEADROP_ADDRESS,
+      address: seaDrop,
       abi: seaDropAbi,
       functionName: "getCreatorPayoutAddress",
       args: [target],
     }),
     publicClient.readContract({
-      address: SEADROP_ADDRESS,
+      address: seaDrop,
       abi: seaDropAbi,
       functionName: "getAllowedFeeRecipients",
       args: [target],
@@ -193,15 +195,27 @@ export async function fetchProfitData(
   publicClient: PublicClient,
   target: `0x${string}`,
   s: CollectionStatus,
+  info: ChainInfo,
 ): Promise<ProfitData> {
+  const api = info.blockscoutApi; // undefined → explorer-dependent parts degrade
+
   // 1. Mint revenue — exact, from SeaDrop's mint events for THIS contract.
-  const logs = await publicClient.getLogs({
-    address: SEADROP_ADDRESS,
-    event: seaDropMintEvent,
-    args: { nftContract: target },
-    fromBlock: 0n,
-    toBlock: "latest",
-  });
+  //    Needs a full-range getLogs; some public RPCs cap this (archive limit).
+  let logs;
+  try {
+    logs = await publicClient.getLogs({
+      address: info.seaDrop,
+      event: seaDropMintEvent,
+      args: { nftContract: target },
+      fromBlock: 0n,
+      toBlock: "latest",
+    });
+  } catch {
+    throw new Error(
+      `${info.label}'s public RPC won't serve full-range logs (archive limit). ` +
+        `Profit needs an archive-capable RPC — swap the RPC for ${info.label} in chains.ts.`,
+    );
+  }
   const mint = computeMintRevenue(
     logs.map((l) => ({
       quantity: l.args.quantityMinted!,
@@ -222,21 +236,22 @@ export async function fetchProfitData(
     .filter((e) => e.wei > 0n);
 
   // 2. Royalties — internal native transfers Seaport 1.6 → royalty receiver.
+  //    Needs a Blockscout API (internal-tx index); skipped where unavailable.
   let royaltyEvents: TimedAmount[] = [];
   let royaltiesTruncated = false;
-  if (s.royaltyBps > 0 && s.royaltyReceiver !== zeroAddress) {
+  if (api && s.royaltyBps > 0 && s.royaltyReceiver !== zeroAddress) {
     let query = "filter=to";
     for (let page = 0; page < 5; page++) {
       const res = await fetch(
-        `${BLOCKSCOUT_API}/addresses/${s.royaltyReceiver}/internal-transactions?${query}`,
+        `${api}/addresses/${s.royaltyReceiver}/internal-transactions?${query}`,
       );
-      if (!res.ok) throw new Error(`Blockscout HTTP ${res.status}`);
+      if (!res.ok) break; // degrade rather than throw the whole profit calc
       const data = (await res.json()) as {
         items: InternalTxItem[];
         next_page_params: Record<string, string | number> | null;
       };
       royaltyEvents = royaltyEvents.concat(
-        extractSeaportPayoutEvents(data.items, SEAPORT_1_6, s.royaltyReceiver),
+        extractSeaportPayoutEvents(data.items, info.seaport, s.royaltyReceiver),
       );
       if (!data.next_page_params) break;
       if (page === 4) {
@@ -254,28 +269,31 @@ export async function fetchProfitData(
   }
   const royalties = royaltyEvents.reduce((acc, e) => acc + e.wei, 0n);
 
-  // 3. Launch cost — gas actually paid for the txs we can attribute.
+  // 3. Launch cost — gas actually paid for the txs we can attribute. Own
+  //    launches come from saved state (any chain); others need the explorer.
   const savedState = loadLaunchState();
   const mine = savedState?.contractAddress?.toLowerCase() === target.toLowerCase();
   const hashes = new Set<string>();
   let createdAt: number | null = null;
-  const creationRes = await fetch(`${BLOCKSCOUT_API}/addresses/${target}`);
-  if (creationRes.ok) {
-    const info = (await creationRes.json()) as {
-      creation_transaction_hash?: string | null;
-      creation_tx_hash?: string | null;
-    };
-    const h = info.creation_transaction_hash ?? info.creation_tx_hash;
-    if (h) {
-      hashes.add(h);
-      try {
-        const txRes = await fetch(`${BLOCKSCOUT_API}/transactions/${h}`);
-        if (txRes.ok) {
-          const tx = (await txRes.json()) as { timestamp?: string };
-          if (tx.timestamp) createdAt = Math.floor(new Date(tx.timestamp).getTime() / 1000);
+  if (api) {
+    const creationRes = await fetch(`${api}/addresses/${target}`);
+    if (creationRes.ok) {
+      const meta = (await creationRes.json()) as {
+        creation_transaction_hash?: string | null;
+        creation_tx_hash?: string | null;
+      };
+      const h = meta.creation_transaction_hash ?? meta.creation_tx_hash;
+      if (h) {
+        hashes.add(h);
+        try {
+          const txRes = await fetch(`${api}/transactions/${h}`);
+          if (txRes.ok) {
+            const tx = (await txRes.json()) as { timestamp?: string };
+            if (tx.timestamp) createdAt = Math.floor(new Date(tx.timestamp).getTime() / 1000);
+          }
+        } catch {
+          createdAt = null;
         }
-      } catch {
-        createdAt = null;
       }
     }
   }
@@ -302,16 +320,18 @@ export async function fetchProfitData(
     }
   }
 
-  // 4. USD approximation.
+  // 4. USD approximation (native coin price from the explorer, where available).
   let ethUsd: number | null = null;
-  try {
-    const statsRes = await fetch(`${BLOCKSCOUT_API}/stats`);
-    if (statsRes.ok) {
-      const price = Number(((await statsRes.json()) as { coin_price?: string }).coin_price);
-      ethUsd = Number.isFinite(price) ? price : null;
+  if (api) {
+    try {
+      const statsRes = await fetch(`${api}/stats`);
+      if (statsRes.ok) {
+        const price = Number(((await statsRes.json()) as { coin_price?: string }).coin_price);
+        ethUsd = Number.isFinite(price) ? price : null;
+      }
+    } catch {
+      ethUsd = null;
     }
-  } catch {
-    ethUsd = null;
   }
 
   return {

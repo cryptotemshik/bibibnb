@@ -1,11 +1,24 @@
 import type { ReactNode } from "react";
-import { explorerAddressUrl, explorerTxUrl, ipfsGatewayUrl } from "../config";
+import {
+  CHAINS_BY_ID,
+  DEFAULT_CHAIN_ID,
+  explorerAddressUrl,
+  explorerTxUrl,
+  ipfsGatewayUrl,
+} from "../chains";
+import { useActiveChain } from "../signer";
+
+/** Active chain, falling back to the default so links still resolve. */
+function useLinkChain() {
+  return useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
+}
 
 export function TxLink({ hash }: { hash: string }) {
+  const info = useLinkChain();
   return (
     <a
       className="mono-break"
-      href={explorerTxUrl(hash)}
+      href={explorerTxUrl(info, hash)}
       target="_blank"
       rel="noreferrer"
     >
@@ -15,10 +28,11 @@ export function TxLink({ hash }: { hash: string }) {
 }
 
 export function AddrLink({ address }: { address: string }) {
+  const info = useLinkChain();
   return (
     <a
       className="mono-break"
-      href={explorerAddressUrl(address)}
+      href={explorerAddressUrl(info, address)}
       target="_blank"
       rel="noreferrer"
     >

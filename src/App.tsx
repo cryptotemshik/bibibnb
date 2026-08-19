@@ -5,12 +5,14 @@ import LaunchTab from "./components/LaunchTab";
 import MintTab from "./components/MintTab";
 import RevealTab from "./components/RevealTab";
 import StatusTab from "./components/StatusTab";
-import { EXPLORER_URL } from "./config";
+import { useActiveChain } from "./signer";
+import { CHAINS_BY_ID, DEFAULT_CHAIN_ID } from "./chains";
 
 type Tab = "dashboard" | "launch" | "reveal" | "status" | "mint";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
+  const info = useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
 
   return (
     <>
@@ -38,9 +40,9 @@ export default function App() {
       {tab === "status" ? <StatusTab /> : null}
       {tab === "mint" ? <MintTab /> : null}
       <div className="footer">
-        explorer:{" "}
-        <a href={EXPLORER_URL} target="_blank" rel="noreferrer">
-          {EXPLORER_URL.replace("https://", "")}
+        {info.label} · explorer:{" "}
+        <a href={info.explorerUrl} target="_blank" rel="noreferrer">
+          {info.explorerUrl.replace("https://", "")}
         </a>
       </div>
     </>

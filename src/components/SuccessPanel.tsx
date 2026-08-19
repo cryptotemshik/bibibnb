@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { openSeaCollectionUrl, xShareUrl } from "../config";
+import { xShareUrl } from "../config";
+import { CHAINS_BY_ID, DEFAULT_CHAIN_ID, openSeaCollectionUrl } from "../chains";
+import { useActiveChain } from "../signer";
 import { formatCountdown, unixToLocalAndUtc } from "../lib/convert";
 import type { LaunchState } from "../lib/launchState";
 import { AddrLink, TxLink } from "./Bits";
@@ -17,6 +19,7 @@ export default function SuccessPanel({
     return () => clearInterval(t);
   }, []);
 
+  const info = useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
   const address = state.contractAddress!;
   const start = unixToLocalAndUtc(state.startTime);
 
@@ -53,8 +56,8 @@ export default function SuccessPanel({
           ) : null}
           <dt>OpenSea</dt>
           <dd>
-            <a href={openSeaCollectionUrl(address)} target="_blank" rel="noreferrer">
-              {openSeaCollectionUrl(address)}
+            <a href={openSeaCollectionUrl(info, address)} target="_blank" rel="noreferrer">
+              {openSeaCollectionUrl(info, address)}
             </a>
             <div className="dim">
               (appears after OpenSea indexes the contract — usually minutes,
@@ -98,13 +101,15 @@ export default function SuccessPanel({
             is an OAuth flow that exists only in OpenSea&apos;s settings UI, so
             it can&apos;t be automated from here.
           </li>
-          <li>
-            Collection → Edit: switch the collection&apos;s trading currency
-            from <b>USDG</b> (the Robinhood Chain default) to <b>ETH</b> if you
-            want listings/floor denominated in ETH. This is an off-chain
-            OpenSea marketplace preference — no contract field or API exists
-            for it, so it&apos;s one manual toggle here.
-          </li>
+          {info.id === 4663 ? (
+            <li>
+              Collection → Edit: switch the collection&apos;s trading currency
+              from <b>USDG</b> (the Robinhood Chain default) to <b>ETH</b> if you
+              want listings/floor denominated in ETH. This is an off-chain
+              OpenSea marketplace preference — no contract field or API exists
+              for it, so it&apos;s one manual toggle here.
+            </li>
+          ) : null}
           <li>
             Optional: OpenSea Studio drop-page cosmetics (gallery, story
             sections) if you want a fancy drop page.
@@ -127,7 +132,7 @@ export default function SuccessPanel({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             className="secondary"
-            onClick={() => window.open(openSeaCollectionUrl(address), "_blank")}
+            onClick={() => window.open(openSeaCollectionUrl(info, address), "_blank")}
           >
             connect X → OpenSea: Edit → Links → Connect
           </button>
@@ -139,7 +144,7 @@ export default function SuccessPanel({
                   `${state.form.name} — minting on OpenSea. Mint opens ${
                     unixToLocalAndUtc(state.startTime).utc
                   }.`,
-                  openSeaCollectionUrl(address),
+                  openSeaCollectionUrl(info, address),
                 ),
                 "_blank",
               )

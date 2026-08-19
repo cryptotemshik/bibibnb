@@ -140,6 +140,33 @@ rarities before mint-out. Launch uploads only the pre-reveal assets. When ready:
    (trailing slash required). `BatchMetadataUpdate` is emitted; OpenSea
    refreshes on its own. If an item lags: item page → … → Refresh metadata.
 
+## Networks (multi-chain)
+
+LaunchPad works on every OpenSea-supported EVM mainnet where the canonical
+SeaDrop is deployed — verified on-chain (`eth_getCode`), not from docs. Pick one
+in the top-bar **network selector**; it drives both wallet mode (asks the wallet
+to switch) and fast mode (the local signer targets that chain).
+
+Supported: Robinhood Chain, Ethereum, Base, Arbitrum One, Arbitrum Nova,
+Optimism, Polygon, Zora, Blast, Avalanche, Sei, B3, Ronin, ApeChain, Shape,
+Soneium, Unichain, Abstract, Berachain, Flow EVM. (Solana is non-EVM and out of
+scope.) SeaDrop, Seaport 1.6, the OpenSea fee recipient, and the royalty
+transfer validator are the same deterministic addresses on all of them — the
+registry with per-chain RPC, explorer, and OpenSea slug is `src/chains.ts`.
+
+Per-chain notes:
+
+- **Enforced royalties** need the transfer validator, which is deployed
+  everywhere *except Abstract* — the enforce option hides itself there.
+- **The launch fee factory is per chain.** Deploy one per chain you want to
+  monetize and map it in `LAUNCH_FACTORIES` (`src/config.ts`).
+- **Profit / Dashboard richness depends on the chain's explorer.** Mint revenue
+  comes from RPC logs and works wherever the chain's RPC serves full-range
+  `getLogs`; royalties and USD need a Blockscout v2 API, set for the chains that
+  have one (Robinhood, Base, Optimism, Zora, B3, Shape, Soneium, Unichain, Flow).
+  Where a public RPC caps log range (some do), the profit panel says so — swap
+  that chain's RPC in `chains.ts` for an archive-capable one to fix it.
+
 ## Charging a launch fee (monetization)
 
 LaunchPad can take a flat on-chain fee for every launch — no backend, no

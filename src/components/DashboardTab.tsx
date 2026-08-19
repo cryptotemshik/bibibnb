@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
+import { useActiveChain } from "../signer";
 import {
   fetchCollectionStatus,
   fetchProfitData,
@@ -37,7 +38,8 @@ type SortKey = "date" | "profit" | "minted" | "volume" | "name";
 
 export default function DashboardTab() {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
+  const chainInfo = useActiveChain();
+  const publicClient = usePublicClient({ chainId: chainInfo?.id });
   const [projects, setProjects] = useState<ProjectEntry[]>(syncLaunchIntoRegistry);
   const [rows, setRows] = useState<Map<string, Row>>(new Map());
   const [addInput, setAddInput] = useState("");
@@ -51,15 +53,15 @@ export default function DashboardTab() {
   const timerRef = useRef<ReturnType<typeof setInterval>>();
 
   async function refresh(list: ProjectEntry[]) {
-    if (!publicClient || list.length === 0 || refreshing) return;
+    if (!publicClient || !chainInfo || list.length === 0 || refreshing) return;
     setRefreshing(true);
     try {
       for (const entry of list) {
         const key = entry.address.toLowerCase();
         try {
           const target = entry.address as `0x${string}`;
-          const status = await fetchCollectionStatus(publicClient, target);
-          const profit = await fetchProfitData(publicClient, target, status);
+          const status = await fetchCollectionStatus(publicClient, target, chainInfo);
+          const profit = await fetchProfitData(publicClient, target, status, chainInfo);
           setRows((m) => new Map(m).set(key, { entry, status, profit }));
           // Cache display bits so the table paints instantly next visit.
           if (entry.name !== status.name || (profit.createdAt && !entry.createdAt)) {
@@ -85,11 +87,12 @@ export default function DashboardTab() {
   }
 
   useEffect(() => {
+    setRows(new Map()); // clear stale rows when the active chain changes
     void refresh(projects);
     timerRef.current = setInterval(() => void refresh(loadProjects()), REFRESH_MS);
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicClient]);
+  }, [publicClient, chainInfo?.id]);
 
   function addProject() {
     const parsed = parseCollectionInput(addInput);

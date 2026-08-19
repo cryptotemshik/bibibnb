@@ -2,16 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { useSigner } from "../signer";
 import { parseEventLogs, zeroHash } from "viem";
-import {
-  DEFAULT_DROP_DAYS,
-  LAUNCH_FACTORY,
-  OPENSEA_FEE_BPS,
-  OPENSEA_FEE_RECIPIENT,
-  SEADROP_ADDRESS,
-  TRANSFER_VALIDATOR,
-  openSeaCollectionUrl,
-  robinhoodChain,
-} from "../config";
+import { DEFAULT_DROP_DAYS, launchFactoryFor } from "../config";
+import { openSeaCollectionUrl } from "../chains";
 import {
   erc721SeaDropAbi,
   erc721SeaDropBytecode,
@@ -164,8 +156,10 @@ function deriveAndValidate(
 type Phase = "form" | "confirm" | "running" | "done";
 
 export default function LaunchTab() {
-  const { address, txAccount, isConnected, walletClient, wrongNetwork } = useSigner();
-  const publicClient = usePublicClient();
+  const { address, txAccount, isConnected, walletClient, wrongNetwork, chainInfo } =
+    useSigner();
+  const publicClient = usePublicClient({ chainId: chainInfo?.id });
+  const factory = launchFactoryFor(chainInfo?.id);
 
   const saved = useMemo(loadLaunchState, []);
   const [form, setForm] = useState<LaunchFormValues>(() => ({
@@ -188,10 +182,10 @@ export default function LaunchTab() {
 
   // Read the on-chain launch fee once, if a fee factory is configured.
   useEffect(() => {
-    if (!LAUNCH_FACTORY || !publicClient) return;
+    if (!factory || !publicClient) return;
     publicClient
       .readContract({
-        address: LAUNCH_FACTORY as `0x${string}`,
+        address: factory as `0x${string}`,
         abi: launchFactoryAbi,
         functionName: "launchFee",
       })
@@ -235,8 +229,13 @@ export default function LaunchTab() {
       setPhase("form");
       return;
     }
-    if (!walletClient || !publicClient || !address || !txAccount) {
-      setErrors(["Connect a wallet or load a fast-mode key first"]);
+    if (!walletClient || !publicClient || !address || !txAccount || !chainInfo) {
+      setErrors(["Connect a wallet or load a fast-mode key on a supported network"]);
+      setPhase("form");
+      return;
+    }
+    if (form.enforcedRoyalties && !chainInfo.transferValidator) {
+      setErrors([`Enforced royalties aren't available on ${chainInfo.label}`]);
       setPhase("form");
       return;
     }
@@ -267,7 +266,7 @@ export default function LaunchTab() {
       { id: "contracturi", label: "Upload collection metadata (contractURI)", status: "pending" },
       {
         id: "deploy",
-        label: LAUNCH_FACTORY
+        label: factory
           ? `TX 1/2 — launch${launchFee > 0n ? ` (fee ${weiToEth(launchFee)} ETH)` : ""}`
           : "TX 1/2 — deploy ERC721SeaDrop",
         status: "pending",
@@ -363,7 +362,7 @@ export default function LaunchTab() {
       // ── TX 1: deploy (via paid factory if configured, else direct) ───────
       updateStep("deploy", { status: "running", detail: "confirm in wallet…" });
       if (!st.contractAddress) {
-        if (LAUNCH_FACTORY) {
+        if (factory) {
           // Paid launch: factory takes the flat fee and deploys a clone owned
           // by the caller in the same tx.
           const saltBytes = new Uint8Array(32);
@@ -372,7 +371,7 @@ export default function LaunchTab() {
             .map((b) => b.toString(16).padStart(2, "0"))
             .join("")}` as `0x${string}`;
           const { request } = await publicClient.simulateContract({
-            address: LAUNCH_FACTORY as `0x${string}`,
+            address: factory as `0x${string}`,
             abi: launchFactoryAbi,
             functionName: "launch",
             args: [form.name, form.symbol, salt],
@@ -405,9 +404,9 @@ export default function LaunchTab() {
           const hash = await walletClient.deployContract({
             abi: erc721SeaDropAbi,
             bytecode: erc721SeaDropBytecode,
-            args: [form.name, form.symbol, [SEADROP_ADDRESS]],
+            args: [form.name, form.symbol, [chainInfo.seaDrop]],
             account: txAccount,
-            chain: robinhoodChain,
+            chain: chainInfo.chain,
           });
           st = updateLaunchState({ deployTxHash: hash });
           setState(st);
@@ -433,13 +432,13 @@ export default function LaunchTab() {
           // No trailing slash: same unrevealed JSON for every token until reveal.
           baseURI: `ipfs://${st.prerevealMetadataCid}`,
           contractURI: `ipfs://${st.contractUriCid}`,
-          seaDropImpl: SEADROP_ADDRESS,
+          seaDropImpl: chainInfo.seaDrop,
           publicDrop: {
             mintPrice: params.priceWei,
             startTime: st.startTime,
             endTime: st.endTime,
             maxTotalMintableByWallet: form.perWalletLimit,
-            feeBps: OPENSEA_FEE_BPS,
+            feeBps: chainInfo.feeBps,
             restrictFeeRecipients: true,
           },
           dropURI: "",
@@ -450,7 +449,7 @@ export default function LaunchTab() {
           },
           creatorPayoutAddress: params.payout,
           provenanceHash: params.provenance ?? zeroHash,
-          allowedFeeRecipients: [OPENSEA_FEE_RECIPIENT],
+          allowedFeeRecipients: [chainInfo.feeRecipient],
           disallowedFeeRecipients: [],
           allowedPayers: [],
           disallowedPayers: [],
@@ -493,7 +492,7 @@ export default function LaunchTab() {
             functionName: "setRoyaltyInfo",
             args: [{ royaltyAddress: params.payout, royaltyBps: BigInt(params.royaltyBps) }],
             account: txAccount,
-            chain: robinhoodChain,
+            chain: chainInfo.chain,
           });
           updateStep("royalty", { detail: "waiting for confirmation…" });
           const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -517,7 +516,7 @@ export default function LaunchTab() {
             address: st.contractAddress as `0x${string}`,
             abi: tokenAbi,
             functionName: "setTransferValidator",
-            args: [TRANSFER_VALIDATOR],
+            args: [chainInfo.transferValidator!],
             account: txAccount,
           });
           const hash = await walletClient.writeContract(request);
@@ -566,6 +565,19 @@ export default function LaunchTab() {
           setPhase("form");
         }}
       />
+    );
+  }
+
+  if (!chainInfo) {
+    return (
+      <div className="panel">
+        <h2>Select a network</h2>
+        <p className="dim">
+          {isConnected
+            ? "Your wallet is on a network LaunchPad doesn't support. Pick a supported OpenSea EVM chain from the selector in the top bar."
+            : "Connect a wallet, or switch to fast mode, and pick a network in the top bar to launch."}
+        </p>
+      </div>
     );
   }
 
@@ -731,7 +743,7 @@ export default function LaunchTab() {
             </select>
             <span className="hint">
               enforced = transfers restricted to royalty-respecting channels via{" "}
-              {TRANSFER_VALIDATOR.slice(0, 10)}… — same validator live enforced
+              {chainInfo.transferValidator?.slice(0, 10)}… — same validator live enforced
               drops on this chain use; owner can turn it off later
             </span>
           </div>
@@ -745,8 +757,8 @@ export default function LaunchTab() {
           </div>
         </div>
         <p className="dim" style={{ marginBottom: 0 }}>
-          OpenSea drop fee: {OPENSEA_FEE_BPS / 100}% to{" "}
-          {OPENSEA_FEE_RECIPIENT.slice(0, 10)}… (required for OpenSea drops,
+          OpenSea drop fee: {chainInfo.feeBps / 100}% to{" "}
+          {chainInfo.feeRecipient.slice(0, 10)}… (required for OpenSea drops,
           restricted fee recipients on). Allowlist / signed / token-gated stages
           are intentionally not supported — public mint only. Mint currency is
           native ETH only: the canonical SeaDrop contract hard-codes msg.value
@@ -840,8 +852,8 @@ export default function LaunchTab() {
               <dt>payout to</dt>
               <dd>{derived.payout}</dd>
               <dt>OpenSea fee</dt>
-              <dd>{OPENSEA_FEE_BPS / 100}% of mint price</dd>
-              {LAUNCH_FACTORY ? (
+              <dd>{chainInfo.feeBps / 100}% of mint price</dd>
+              {factory ? (
                 <>
                   <dt>launch fee</dt>
                   <dd>
@@ -865,7 +877,7 @@ export default function LaunchTab() {
               <dt>provenance</dt>
               <dd>{derived.provenance ?? "not set"}</dd>
               <dt>predicted link</dt>
-              <dd>{openSeaCollectionUrl("<contract-address>")}</dd>
+              <dd>{openSeaCollectionUrl(chainInfo, "<contract-address>")}</dd>
             </dl>
             <p className="warn">
               Name and symbol are permanent. Price, start/end time and

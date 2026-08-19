@@ -106,6 +106,17 @@ h1 .cursor {
   color: #032410;
   font-weight: 700;
 }
+.net-select {
+  width: auto;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.net-select.bad {
+  border-color: var(--err);
+  color: var(--err);
+}
 .signer-panel {
   border-color: var(--warn);
 }

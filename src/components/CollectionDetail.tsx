@@ -1,4 +1,11 @@
-import { openSeaCollectionUrl, TRANSFER_VALIDATOR, xShareUrl } from "../config";
+import { xShareUrl } from "../config";
+import {
+  CHAINS_BY_ID,
+  DEFAULT_CHAIN_ID,
+  openSeaCollectionUrl,
+  type ChainInfo,
+} from "../chains";
+import { useActiveChain } from "../signer";
 import type { CollectionStatus } from "../lib/collectionData";
 import { unixToLocalAndUtc, weiToEth } from "../lib/convert";
 import {
@@ -26,8 +33,13 @@ export function CollectionDetail({
   status: CollectionStatus;
   isOwner: boolean;
 }) {
+  const info: ChainInfo =
+    useActiveChain() ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!;
   const pd = status.publicDrop;
   const revealed = status.baseURI.endsWith("/");
+  const enforced =
+    info.transferValidator !== undefined &&
+    status.transferValidator.toLowerCase() === info.transferValidator.toLowerCase();
   return (
     <dl className="kv">
       <dt>minted</dt>
@@ -63,7 +75,7 @@ export function CollectionDetail({
         {status.royaltyBps > 0 ? (
           <>
             {status.royaltyBps / 100}% → {status.royaltyReceiver.slice(0, 10)}…{" "}
-            {status.transferValidator === TRANSFER_VALIDATOR ? (
+            {enforced ? (
               <span className="ok">[ENFORCED — OpenSea validator]</span>
             ) : status.transferValidator !== ZERO ? (
               <span className="warn">
@@ -102,12 +114,12 @@ export function CollectionDetail({
       <dd>{/^0x0+$/.test(status.provenanceHash) ? "not set" : status.provenanceHash}</dd>
       <dt>links</dt>
       <dd>
-        <a href={openSeaCollectionUrl(contract)} target="_blank" rel="noreferrer">
+        <a href={openSeaCollectionUrl(info, contract)} target="_blank" rel="noreferrer">
           OpenSea
         </a>{" "}
         · <AddrLink address={contract} /> ·{" "}
         <a
-          href={xShareUrl(`${status.name} — live on OpenSea.`, openSeaCollectionUrl(contract))}
+          href={xShareUrl(`${status.name} — live on OpenSea.`, openSeaCollectionUrl(info, contract))}
           target="_blank"
           rel="noreferrer"
         >

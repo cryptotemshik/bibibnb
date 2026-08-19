@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { zeroAddress } from "viem";
 import { useSigner } from "../signer";
-import {
-  OPENSEA_FEE_RECIPIENT,
-  SEADROP_ADDRESS,
-  openSeaItemUrl,
-} from "../config";
+import { CHAINS_BY_ID, DEFAULT_CHAIN_ID, openSeaItemUrl } from "../chains";
 import { seaDropAbi, tokenAbi } from "../contracts/seadrop";
 import { formatCountdown, parseCollectionInput, weiToEth } from "../lib/convert";
 import { formatEthShort } from "../lib/profit";
@@ -39,8 +35,9 @@ function phaseOf(t: MintTarget, now: number): DropPhase {
 }
 
 export default function MintTab() {
-  const { address, txAccount, isConnected, walletClient, wrongNetwork } = useSigner();
-  const publicClient = usePublicClient();
+  const { address, txAccount, isConnected, walletClient, wrongNetwork, chainInfo } =
+    useSigner();
+  const publicClient = usePublicClient({ chainId: chainInfo?.id });
 
   const [input, setInput] = useState("");
   const [target, setTarget] = useState<MintTarget | null>(null);
@@ -65,7 +62,11 @@ export default function MintTab() {
       setError("Paste a collection contract address or an OpenSea/Blockscout link");
       return;
     }
-    if (!publicClient) return;
+    if (!publicClient || !chainInfo) {
+      setError("Select a supported network first");
+      return;
+    }
+    const seaDrop = chainInfo.seaDrop;
     setLoading(true);
     setError(null);
     setTarget(null);
@@ -85,13 +86,13 @@ export default function MintTab() {
       ]);
       const [publicDrop, allowedFeeRecipients] = await Promise.all([
         publicClient.readContract({
-          address: SEADROP_ADDRESS,
+          address: seaDrop,
           abi: seaDropAbi,
           functionName: "getPublicDrop",
           args: [parsed],
         }),
         publicClient.readContract({
-          address: SEADROP_ADDRESS,
+          address: seaDrop,
           abi: seaDropAbi,
           functionName: "getAllowedFeeRecipients",
           args: [parsed],
@@ -112,7 +113,7 @@ export default function MintTab() {
       setQuantity(1);
     } catch (e) {
       setError(
-        `Could not read this collection — is it a SeaDrop drop on Robinhood Chain? (${
+        `Could not read this collection — is it a SeaDrop drop on ${chainInfo.label}? (${
           e instanceof Error ? e.message.split("\n")[0] : e
         })`,
       );
@@ -122,16 +123,18 @@ export default function MintTab() {
   }
 
   function pickFeeRecipient(t: MintTarget): `0x${string}` | null {
+    const openSeaFee = chainInfo?.feeRecipient;
     const allowed = t.allowedFeeRecipients.map((a) => a.toLowerCase());
-    if (!t.restrictFeeRecipients) return OPENSEA_FEE_RECIPIENT;
-    if (allowed.includes(OPENSEA_FEE_RECIPIENT.toLowerCase())) return OPENSEA_FEE_RECIPIENT;
+    if (openSeaFee && !t.restrictFeeRecipients) return openSeaFee;
+    if (openSeaFee && allowed.includes(openSeaFee.toLowerCase())) return openSeaFee;
     if (t.allowedFeeRecipients.length > 0)
       return t.allowedFeeRecipients[0] as `0x${string}`;
     return null;
   }
 
   async function mint() {
-    if (!target || !walletClient || !publicClient || !address || !txAccount) return;
+    if (!target || !walletClient || !publicClient || !address || !txAccount || !chainInfo)
+      return;
     setMinting(true);
     setError(null);
     setMintedIds(null);
@@ -143,7 +146,7 @@ export default function MintTab() {
       }
       const value = target.price * BigInt(quantity);
       const { request } = await publicClient.simulateContract({
-        address: SEADROP_ADDRESS,
+        address: chainInfo.seaDrop,
         abi: seaDropAbi,
         functionName: "mintPublic",
         args: [target.address, feeRecipient, zeroAddress, BigInt(quantity)],
@@ -288,7 +291,7 @@ export default function MintTab() {
                     <div key={id.toString()}>
                       #{id.toString()} —{" "}
                       <a
-                        href={openSeaItemUrl(target!.address, id)}
+                        href={openSeaItemUrl(chainInfo ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!, target!.address, id)}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -296,7 +299,7 @@ export default function MintTab() {
                       </a>{" "}
                       ·{" "}
                       <a
-                        href={openSeaItemUrl(target!.address, id)}
+                        href={openSeaItemUrl(chainInfo ?? CHAINS_BY_ID.get(DEFAULT_CHAIN_ID)!, target!.address, id)}
                         target="_blank"
                         rel="noreferrer"
                       >
