@@ -40,11 +40,12 @@ forge test --match-contract PaidFactoryForkTest \
   --fork-url https://rpc.mainnet.chain.robinhood.com
 
 # Deploy it. Constructor args: <launchFee in wei> <feeRecipient>.
-# Example: 0.01 ETH fee (10000000000000000 wei), fees to YOUR_ADDRESS.
+# Configured: 0.001 ETH fee (1000000000000000 wei), fees to
+# 0x989fc61bcdf2cb40864127c2f75955d76a9a679a.
 forge create src/clones/PaidSeaDropCloneFactory.sol:PaidSeaDropCloneFactory \
   --rpc-url https://rpc.mainnet.chain.robinhood.com \
   --private-key $YOUR_DEPLOYER_KEY \
-  --constructor-args 10000000000000000 0xYOUR_FEE_RECIPIENT
+  --constructor-args 1000000000000000 0x989fc61bcdf2cb40864127c2f75955d76a9a679a
 ```
 
 Then paste the deployed factory address into `src/config.ts`:
