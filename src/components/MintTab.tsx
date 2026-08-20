@@ -5,6 +5,16 @@ import { useSigner } from "../signer";
 import { CHAINS_BY_ID, DEFAULT_CHAIN_ID, openSeaItemUrl } from "../chains";
 import { seaDropAbi, tokenAbi } from "../contracts/seadrop";
 import { formatCountdown, parseCollectionInput, weiToEth } from "../lib/convert";
+import {
+  checkEligibility,
+  type Eligibility,
+  type MintParams,
+} from "../lib/allowlist";
+import {
+  fetchAllowListSource,
+  hasAllowList,
+  type AllowListSource,
+} from "../lib/allowlistSource";
 import { formatEthShort } from "../lib/profit";
 import { TxLink } from "./Bits";
 
@@ -22,7 +32,14 @@ interface MintTarget {
   perWallet: number;
   restrictFeeRecipients: boolean;
   allowedFeeRecipients: readonly string[];
+  /** Allow-list root + document, when the drop has one. */
+  allow?: AllowListSource;
+  /** Whether the connected wallet is on that list. */
+  eligibility?: Eligibility;
 }
+
+/** Which stage the user is minting from. */
+type Stage = "public" | "allowlist";
 
 type DropPhase = "unconfigured" | "pending" | "live" | "ended" | "soldout";
 
@@ -48,13 +65,22 @@ export default function MintTab() {
   const [mintedIds, setMintedIds] = useState<bigint[] | null>(null);
   const [mintTx, setMintTx] = useState<string | null>(null);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [stage, setStage] = useState<Stage>("public");
+  const [checkingAllow, setCheckingAllow] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const phase = target ? phaseOf(target, now) : null;
+  const active = target ? activeStage(target) : null;
+  const phase =
+    target && active
+      ? phaseOf(
+          { ...target, startTime: active.startTime, endTime: active.endTime },
+          now,
+        )
+      : null;
 
   async function load() {
     const parsed = parseCollectionInput(input);
@@ -98,7 +124,7 @@ export default function MintTab() {
           args: [parsed],
         }),
       ]);
-      setTarget({
+      const base: MintTarget = {
         address: parsed,
         name,
         totalSupply,
@@ -109,8 +135,11 @@ export default function MintTab() {
         perWallet: Number(publicDrop.maxTotalMintableByWallet),
         restrictFeeRecipients: publicDrop.restrictFeeRecipients,
         allowedFeeRecipients,
-      });
+      };
+      setTarget(base);
       setQuantity(1);
+      setStage("public");
+      void checkAllowList(base);
     } catch (e) {
       setError(
         `Could not read this collection — is it a SeaDrop drop on ${chainInfo.label}? (${
@@ -122,6 +151,39 @@ export default function MintTab() {
     }
   }
 
+  /**
+   * Does this drop have an allow-list, and is the connected wallet on it?
+   * Runs after the public read so the tab is usable while it resolves.
+   */
+  async function checkAllowList(t: MintTarget) {
+    if (!publicClient || !chainInfo) return;
+    setCheckingAllow(true);
+    try {
+      const source = await fetchAllowListSource(publicClient, chainInfo, t.address);
+      let eligibility: Eligibility | undefined;
+      if (hasAllowList(source.root) && source.list && address) {
+        eligibility = checkEligibility(source.list, address, source.root);
+      }
+      setTarget((prev) =>
+        prev && prev.address === t.address
+          ? { ...prev, allow: source, eligibility }
+          : prev,
+      );
+      // Land on the allow-list stage when it's the one that can actually mint.
+      if (eligibility?.eligible) setStage("allowlist");
+    } catch {
+      // Allow-list detection is a bonus — never block the public mint on it.
+    } finally {
+      setCheckingAllow(false);
+    }
+  }
+
+  // Re-check when the wallet changes; the answer is per-address.
+  useEffect(() => {
+    if (target) void checkAllowList(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
+
   function pickFeeRecipient(t: MintTarget): `0x${string}` | null {
     const openSeaFee = chainInfo?.feeRecipient;
     const allowed = t.allowedFeeRecipients.map((a) => a.toLowerCase());
@@ -130,6 +192,32 @@ export default function MintTab() {
     if (t.allowedFeeRecipients.length > 0)
       return t.allowedFeeRecipients[0] as `0x${string}`;
     return null;
+  }
+
+  /** Price and limit for the stage the user is on. */
+  function activeStage(t: MintTarget): {
+    price: bigint;
+    perWallet: number;
+    startTime: number;
+    endTime: number;
+    params?: MintParams;
+  } {
+    if (stage === "allowlist" && t.eligibility?.eligible && t.eligibility.params) {
+      const p = t.eligibility.params;
+      return {
+        price: p.mintPrice,
+        perWallet: Number(p.maxTotalMintableByWallet),
+        startTime: Number(p.startTime),
+        endTime: Number(p.endTime),
+        params: p,
+      };
+    }
+    return {
+      price: t.price,
+      perWallet: t.perWallet,
+      startTime: t.startTime,
+      endTime: t.endTime,
+    };
   }
 
   async function mint() {
@@ -144,16 +232,43 @@ export default function MintTab() {
       if (!feeRecipient) {
         throw new Error("This drop restricts fee recipients and allows none — cannot mint");
       }
-      const value = target.price * BigInt(quantity);
-      const { request } = await publicClient.simulateContract({
-        address: chainInfo.seaDrop,
-        abi: seaDropAbi,
-        functionName: "mintPublic",
-        args: [target.address, feeRecipient, zeroAddress, BigInt(quantity)],
-        account: txAccount,
-        value,
-      });
-      const hash = await walletClient.writeContract(request);
+      const active = activeStage(target);
+      const value = active.price * BigInt(quantity);
+      const el = target.eligibility;
+      const useAllowList =
+        stage === "allowlist" && el?.eligible && el.params && el.proof;
+
+      // Two distinct calls; each simulated and sent in its own branch so the
+      // ABI types stay concrete.
+      let hash: `0x${string}`;
+      if (useAllowList) {
+        const { request } = await publicClient.simulateContract({
+          address: chainInfo.seaDrop,
+          abi: seaDropAbi,
+          functionName: "mintAllowList",
+          args: [
+            target.address,
+            feeRecipient,
+            zeroAddress,
+            BigInt(quantity),
+            el!.params!,
+            el!.proof!,
+          ],
+          account: txAccount,
+          value,
+        });
+        hash = await walletClient.writeContract(request);
+      } else {
+        const { request } = await publicClient.simulateContract({
+          address: chainInfo.seaDrop,
+          abi: seaDropAbi,
+          functionName: "mintPublic",
+          args: [target.address, feeRecipient, zeroAddress, BigInt(quantity)],
+          account: txAccount,
+          value,
+        });
+        hash = await walletClient.writeContract(request);
+      }
       setMintTx(hash);
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       if (receipt.status !== "success") throw new Error(`Mint reverted (${hash})`);
@@ -181,7 +296,7 @@ export default function MintTab() {
     }
   }
 
-  const totalCost = target ? target.price * BigInt(quantity || 0) : 0n;
+  const totalCost = active ? active.price * BigInt(quantity || 0) : 0n;
 
   return (
     <div>
@@ -206,49 +321,71 @@ export default function MintTab() {
         {error ? <p className="error">{error}</p> : null}
       </div>
 
-      {target && phase ? (
+      {target && phase && active ? (
         <div className="panel">
           <h2>{target.name}</h2>
+
+          <StagePicker
+            target={target}
+            stage={stage}
+            setStage={setStage}
+            checking={checkingAllow}
+            walletConnected={Boolean(address)}
+          />
+
           <dl className="kv">
             <dt>minted</dt>
             <dd>
               {target.totalSupply.toString()} / {target.maxSupply.toString()}
             </dd>
             <dt>price</dt>
-            <dd>{target.price === 0n ? "FREE" : `${weiToEth(target.price)} ETH each`}</dd>
+            <dd>
+              {active.price === 0n ? "FREE" : `${weiToEth(active.price)} ETH each`}
+              {stage === "allowlist" && active.price !== target.price ? (
+                <span className="dim">
+                  {" "}
+                  (public is{" "}
+                  {target.price === 0n ? "FREE" : `${weiToEth(target.price)} ETH`})
+                </span>
+              ) : null}
+            </dd>
             <dt>per wallet</dt>
-            <dd>max {target.perWallet}</dd>
+            <dd>max {active.perWallet}</dd>
             <dt>status</dt>
             <dd>
               {phase === "live" ? (
                 <span className="ok">
-                  LIVE — ends in {formatCountdown(target.endTime - now)}
+                  LIVE — ends in {formatCountdown(active.endTime - now)}
                 </span>
               ) : phase === "pending" ? (
                 <span className="warn">
-                  starts in {formatCountdown(target.startTime - now)}
+                  starts in {formatCountdown(active.startTime - now)}
                 </span>
               ) : phase === "ended" ? (
                 <span className="error">ended</span>
               ) : phase === "soldout" ? (
                 <span className="warn">SOLD OUT</span>
               ) : (
-                <span className="warn">public drop not configured</span>
+                <span className="warn">
+                  {stage === "allowlist"
+                    ? "allow-list stage not configured"
+                    : "public drop not configured"}
+                </span>
               )}
             </dd>
           </dl>
 
           <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap", marginTop: 12 }}>
             <div className="field" style={{ width: 130 }}>
-              <label>quantity (max {target.perWallet})</label>
+              <label>quantity (max {active.perWallet})</label>
               <input
                 type="number"
                 min={1}
-                max={target.perWallet}
+                max={active.perWallet}
                 value={quantity}
                 onChange={(e) =>
                   setQuantity(
-                    Math.max(1, Math.min(target.perWallet, Number(e.target.value) || 1)),
+                    Math.max(1, Math.min(active.perWallet, Number(e.target.value) || 1)),
                   )
                 }
               />
@@ -265,7 +402,7 @@ export default function MintTab() {
                   ? "CONNECT WALLET"
                   : wrongNetwork
                     ? "SWITCH NETWORK"
-                    : `MINT ${quantity} — ${totalCost === 0n ? "FREE" : `${formatEthShort(totalCost)} ETH`}`}
+                    : `MINT ${quantity}${stage === "allowlist" ? " (ALLOWLIST)" : ""} — ${totalCost === 0n ? "FREE" : `${formatEthShort(totalCost)} ETH`}`}
             </button>
           </div>
           <p className="hint dim" style={{ marginBottom: 0 }}>
@@ -321,6 +458,86 @@ export default function MintTab() {
           </p>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Stage selector. Public is always there; the allow-list tab only appears once
+ * the drop is known to have one, and is only selectable when the connected
+ * wallet actually proves onto it.
+ */
+function StagePicker({
+  target,
+  stage,
+  setStage,
+  checking,
+  walletConnected,
+}: {
+  target: MintTarget;
+  stage: Stage;
+  setStage: (s: Stage) => void;
+  checking: boolean;
+  walletConnected: boolean;
+}) {
+  const allow = target.allow;
+  const el = target.eligibility;
+
+  if (checking && !allow) {
+    return <p className="dim">checking whether you&apos;re on an allow-list…</p>;
+  }
+  if (!allow || !hasAllowList(allow.root)) {
+    return (
+      <p className="dim" style={{ marginTop: 0 }}>
+        Public stage only — this drop has no allow-list.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="mode-toggle" style={{ marginBottom: 8 }}>
+        <button
+          className={stage === "public" ? "active" : ""}
+          onClick={() => setStage("public")}
+        >
+          public
+        </button>
+        <button
+          className={stage === "allowlist" ? "active" : ""}
+          disabled={!el?.eligible}
+          onClick={() => el?.eligible && setStage("allowlist")}
+        >
+          allowlist {el?.eligible ? "✓" : ""}
+        </button>
+      </div>
+
+      {allow.problem ? (
+        <p className="warn" style={{ marginBottom: 0 }}>
+          This drop has an allow-list, but {allow.problem}
+        </p>
+      ) : !walletConnected ? (
+        <p className="dim" style={{ marginBottom: 0 }}>
+          This drop has an allow-list — connect a wallet to check whether
+          you&apos;re on it.
+        </p>
+      ) : el?.eligible ? (
+        <p className="ok" style={{ marginBottom: 0 }}>
+          ● You&apos;re on the allow-list — proof verified against the
+          contract&apos;s merkle root, so this mint will go through.
+        </p>
+      ) : el?.proofMismatch ? (
+        <p className="warn" style={{ marginBottom: 0 }}>
+          Your wallet is in the published list, but its proof doesn&apos;t match
+          the root the contract holds — the list is out of date. Only the public
+          stage will mint.
+        </p>
+      ) : (
+        <p className="dim" style={{ marginBottom: 0 }}>
+          Your wallet is <b>not</b> on this drop&apos;s allow-list. Public stage
+          only.
+        </p>
+      )}
     </div>
   );
 }

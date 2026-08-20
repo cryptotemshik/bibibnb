@@ -378,6 +378,32 @@ wallet). There is deliberately no automation, no sniping, no multi-wallet, and
 no in-app listing — OpenSea's order book API needs an API key and a backend,
 and LaunchPad has neither.
 
+## Allow-list detection (Mint tab)
+
+The Mint tab works out by itself whether your wallet can mint from an
+allow-list stage, not just the public one:
+
+1. Reads `getAllowListMerkleRoot` — a non-zero root means the drop has a list.
+2. Finds the list's `allowListURI` from SeaDrop's `AllowListUpdated` event
+   (indexed RPC query, falling back to Blockscout where the RPC refuses wide
+   ranges), and fetches it — `http(s)`, `ipfs://` and inline `data:` all work.
+3. Looks the connected wallet up and derives its merkle proof, **verifying it
+   against the root the contract actually holds** before offering the mint.
+4. Shows a public / allowlist stage picker. The allowlist tab only unlocks when
+   the proof verifies, and selecting it switches the price, per-wallet limit
+   and window to that stage's `MintParams` and mints via `mintAllowList`.
+
+Leaf encoding is `keccak256(abi.encode(minter, mintParams))` with sorted-pair
+proofs — verified against a live drop, reproducing its published leaf and
+on-chain root exactly (pinned in `allowlist.test.ts`). Both allow-list document
+shapes seen in the wild are handled: a `claims` map carrying ready-made proofs,
+and a flat array whose tree is rebuilt locally. A shipped proof that no longer
+matches the chain is detected and reported rather than sent.
+
+Honest limit: **OpenSea publishes its own allow-lists PGP-encrypted**, so for
+those the membership check is impossible for anyone but OpenSea — the tab says
+so and points you at opensea.io for that stage.
+
 ## Status tab
 
 Read-only dashboard for any pasted/saved contract: minted vs maxSupply, decoded
