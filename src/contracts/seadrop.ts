@@ -231,6 +231,20 @@ export const seaDropAbi = [
   },
   {
     type: "function",
+    name: "getSigners",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "getTokenGatedAllowedTokens",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    type: "function",
     name: "getCreatorPayoutAddress",
     stateMutability: "view",
     inputs: [{ name: "nftContract", type: "address" }],

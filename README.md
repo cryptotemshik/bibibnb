@@ -400,9 +400,27 @@ shapes seen in the wild are handled: a `claims` map carrying ready-made proofs,
 and a flat array whose tree is rebuilt locally. A shipped proof that no longer
 matches the chain is detected and reported rather than sent.
 
-Honest limit: **OpenSea publishes its own allow-lists PGP-encrypted**, so for
-those the membership check is impossible for anyone but OpenSea — the tab says
-so and points you at opensea.io for that stage.
+### Three kinds of gate, named correctly
+
+A zero merkle root does **not** mean "public only" — SeaDrop restricts stages
+three different ways, and the tab reports which one a drop uses:
+
+- **merkle** — an on-chain root plus a published list. Fully handled above:
+  membership is proven locally and `mintAllowList` works from here.
+- **signed** — the stage is authorised by OpenSea signing each mint
+  (`mintSigned`), detected via `getSigners`. There is no list to read:
+  eligibility lives in OpenSea's backend and the mint needs their signature,
+  so that stage can only be minted on opensea.io. The tab says exactly that,
+  and names the authorised signer.
+- **tokenGated** — holders of another NFT mint the stage, detected via
+  `getTokenGatedAllowedTokens`. Not mintable from here yet; reported rather
+  than hidden.
+
+Honest limits: **OpenSea publishes its own merkle allow-lists PGP-encrypted**,
+so for those the membership check is impossible for anyone but OpenSea; and a
+signature-gated stage is impossible for *any* third-party app, since only the
+signer's private key can authorise it. In both cases the tab points you at
+opensea.io for that stage — the public stage still mints from here.
 
 ## Status tab
 

@@ -21,6 +21,25 @@ export interface AllowListSource {
   list?: ParsedAllowList;
   /** Why the list couldn't be read, when it couldn't. */
   problem?: string;
+  /**
+   * Wallets OpenSea has authorised to sign `mintSigned` authorisations. A
+   * non-empty list means the drop gates a stage behind a server signature —
+   * a real allow-list, just not one whose membership anything but the signer's
+   * own backend can answer.
+   */
+  signers?: readonly string[];
+  /** NFT contracts whose holders get a token-gated stage. */
+  gatedTokens?: readonly string[];
+}
+
+/** Which kind of restricted stage a drop actually uses, if any. */
+export type GateKind = "none" | "merkle" | "signed" | "tokenGated";
+
+export function gateKind(s: AllowListSource): GateKind {
+  if (hasAllowList(s.root)) return "merkle";
+  if (s.signers && s.signers.length > 0) return "signed";
+  if (s.gatedTokens && s.gatedTokens.length > 0) return "tokenGated";
+  return "none";
 }
 
 export function hasAllowList(root: string): boolean {
@@ -124,18 +143,41 @@ export async function fetchAllowListSource(
     args: [nftContract],
   })) as `0x${string}`;
 
-  if (!hasAllowList(root)) return { root };
+  // A zero root doesn't mean "public only" — the stage may be gated by a
+  // signature or by holding another NFT instead. Ask about those too.
+  const [signers, gatedTokens] = await Promise.all([
+    publicClient
+      .readContract({
+        address: info.seaDrop,
+        abi: seaDropAbi,
+        functionName: "getSigners",
+        args: [nftContract],
+      })
+      .catch(() => [] as readonly string[]) as Promise<readonly string[]>,
+    publicClient
+      .readContract({
+        address: info.seaDrop,
+        abi: seaDropAbi,
+        functionName: "getTokenGatedAllowedTokens",
+        args: [nftContract],
+      })
+      .catch(() => [] as readonly string[]) as Promise<readonly string[]>,
+  ]);
+
+  if (!hasAllowList(root)) return { root, signers, gatedTokens };
 
   const uri = await findAllowListUri(publicClient, info, nftContract);
   if (!uri) {
     return {
       root,
+      signers,
+      gatedTokens,
       problem:
         "This drop has an allow-list, but its published location couldn't be found in the chain's logs.",
     };
   }
 
   const { doc, problem } = await loadDocument(uri);
-  if (problem) return { root, uri, problem };
-  return { root, uri, list: parseAllowList(doc) };
+  if (problem) return { root, uri, problem, signers, gatedTokens };
+  return { root, uri, list: parseAllowList(doc), signers, gatedTokens };
 }

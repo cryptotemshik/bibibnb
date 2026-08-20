@@ -12,6 +12,7 @@ import {
 } from "../lib/allowlist";
 import {
   fetchAllowListSource,
+  gateKind,
   hasAllowList,
   type AllowListSource,
 } from "../lib/allowlistSource";
@@ -486,11 +487,55 @@ function StagePicker({
   if (checking && !allow) {
     return <p className="dim">checking whether you&apos;re on an allow-list…</p>;
   }
-  if (!allow || !hasAllowList(allow.root)) {
+  const kind = allow ? gateKind(allow) : "none";
+
+  if (!allow || kind === "none") {
     return (
       <p className="dim" style={{ marginTop: 0 }}>
-        Public stage only — this drop has no allow-list.
+        Public stage only — this drop has no allow-list, signature gate or
+        token gate.
       </p>
+    );
+  }
+
+  // Signature-gated: a real allow-list, but membership lives in the signer's
+  // backend. No amount of on-chain reading can answer it, and the mint needs
+  // that server's signature.
+  if (kind === "signed") {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <p className="warn" style={{ marginTop: 0, marginBottom: 4 }}>
+          <b>This drop has a signature-gated allow-list.</b> Its restricted
+          stage is authorised by OpenSea signing each mint
+          (<code>mintSigned</code>), not by an on-chain list — so whether
+          you&apos;re on it is only knowable to OpenSea, and the mint needs
+          their signature.
+        </p>
+        <p className="dim" style={{ marginBottom: 0 }}>
+          Mint that stage on opensea.io. The public stage below, when open,
+          mints from here as usual.{" "}
+          <span className="dim">
+            (authorised signer{allow.signers!.length > 1 ? "s" : ""}:{" "}
+            {allow.signers!.map((x) => x.slice(0, 10) + "…").join(", ")})
+          </span>
+        </p>
+      </div>
+    );
+  }
+
+  if (kind === "tokenGated") {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <p className="warn" style={{ marginTop: 0, marginBottom: 4 }}>
+          <b>This drop has a token-gated stage.</b> Holders of{" "}
+          {allow.gatedTokens!.map((x) => x.slice(0, 10) + "…").join(", ")} can
+          mint it.
+        </p>
+        <p className="dim" style={{ marginBottom: 0 }}>
+          LaunchPad doesn&apos;t mint token-gated stages yet — use opensea.io
+          for that one. The public stage below mints from here.
+        </p>
+      </div>
     );
   }
 
